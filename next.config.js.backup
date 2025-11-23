@@ -1,0 +1,29 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+    ],
+  },
+
+  // If you're using styled-components
+  compiler: {
+    styledComponents: true,
+  },
+
+  // Optional: Disable image optimization for development
+  // images: {
+  //   unoptimized: true,
+  // },
+};
+
+module.exports = nextConfig;
