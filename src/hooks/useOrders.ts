@@ -17,7 +17,6 @@ export function useOrders() {
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = async () => {
-    // Don't fetch if not authenticated
     if (status !== 'authenticated') {
       setOrders([]);
       setLoading(false);
@@ -45,16 +44,22 @@ export function useOrders() {
     fetchOrders();
   }, [status]);
 
+  // 🔥 NAYA FIX: Connecting to the flat POST endpoint securely
   const cancelOrder = async (orderId: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH',
+      const response = await fetch('/api/orders/cancel', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' }),
+        body: JSON.stringify({ orderId }),
       });
 
       if (response.ok) {
-        await fetchOrders();
+        // Instant UI State Update: Refreshing local state immediately
+        setOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === orderId ? { ...order, status: 'CANCELLED' } : order
+          )
+        );
         return true;
       }
       return false;

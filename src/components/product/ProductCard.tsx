@@ -1,155 +1,168 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiHeart, FiShoppingCart, FiEye } from 'react-icons/fi';
+// 1. Hook imported
+import { useGlobalCurrency } from '@/context/CurrencyContext';
+import { motion } from 'framer-motion';
+import { Heart, ShoppingBag, Star } from 'lucide-react';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import { Product } from '@/types/product';
 
-interface ProductCardProps {
-  product: {
-    id: string;
-    slug: string;
-    name: string;
-    price: number;
-    compareAtPrice?: number;
-    image: string;
-    rating: number;
-    reviewCount: number;
-    isNew?: boolean;
-    isFeatured?: boolean;
-  };
+// Skeleton exported for reuse
+export function ProductCardSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="bg-neutral-200 aspect-[4/5] rounded-xl mb-4" />
+      <div className="space-y-2 px-1">
+        <div className="bg-neutral-200 h-3 w-1/3 rounded" />
+        <div className="bg-neutral-200 h-4 w-3/4 rounded" />
+        <div className="bg-neutral-200 h-5 w-1/4 rounded" />
+      </div>
+    </div>
+  );
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product }: { product: Product & { isSale?: boolean, salePrice?: number } }) {
   const router = useRouter();
   const { data: session } = useSession();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const [isToggling, setIsToggling] = useState(false);
+
+  // 2. Initialize global currency hook
+  const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
+
+  const [wishlisting, setWishlisting] = useState(false);
 
   const inWishlist = isInWishlist(product.id);
+  const outOfStock = product.stock === 0;
 
-  const handleWishlistToggle = async (e: React.MouseEvent) => {
+  // 🔥 NEW: Smart Sale & Discount Calculation Logic
+  let discount = 0;
+  let currentPrice = product.price;
+  let originalPrice = product.compareAtPrice;
+
+  if (product.isSale && product.salePrice && product.price > product.salePrice) {
+    // Agar product naye Sale system ke under hai
+    discount = Math.round(((product.price - product.salePrice) / product.price) * 100);
+    currentPrice = product.salePrice;
+    originalPrice = product.price;
+  } else if (product.compareAtPrice && product.compareAtPrice > product.price) {
+    // Purana compareAtPrice logic (Fallback)
+    discount = Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100);
+  }
+
+  const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (!session) {
-      router.push('/auth/signin?callbackUrl=' + router.asPath);
-      return;
-    }
-
-    setIsToggling(true);
+    if (!session) { router.push('/auth/signin'); return; }
+    setWishlisting(true);
     await toggleWishlist(product.id);
-    setIsToggling(false);
+    setWishlisting(false);
   };
 
-  const discount = product.compareAtPrice
-    ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
-    : 0;
-
   return (
-    <div className="group relative bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-      {/* Image - Wrap entire card in Link */}
+    <motion.article
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="group"
+    >
       <Link href={`/products/${product.slug}`} className="block">
-        <div className="relative h-80 bg-gray-100 overflow-hidden">
+        {/* Image container */}
+        <div className="relative aspect-[4/5] bg-neutral-100 rounded-xl overflow-hidden mb-4">
           <Image
-            src={product.image}
+            src={product.image || '/placeholder.png'}
             alt={product.name}
             fill
-            className="object-cover group-hover:scale-110 transition-transform duration-500"
+            sizes="(max-width:640px) 100vw,(max-width:1024px) 50vw,25vw"
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
+            loading="lazy"
+          // ✅ Fixed fetchpriority warning implicitly by keeping it clean and using lazy loading
           />
-          
+
           {/* Badges */}
-          <div className="absolute top-4 left-4 space-y-2">
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
             {product.isNew && (
-              <span className="block px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                NEW
-              </span>
+              <span className="bg-black text-white text-[10px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-full">New</span>
             )}
-            {discount > 0 && (
-              <span className="block px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-                -{discount}%
-              </span>
+            {/* 🔥 Dynamic Sale Badge */}
+            {product.isSale && discount > 0 ? (
+              <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-md shadow-red-200">-{discount}% SALE</span>
+            ) : discount > 0 ? (
+              <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">-{discount}%</span>
+            ) : null}
+            {outOfStock && (
+              <span className="bg-neutral-500 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-full">Sold Out</span>
             )}
           </div>
 
-          {/* Wishlist Button - Outside Link */}
-          <button
-            onClick={handleWishlistToggle}
-            disabled={isToggling}
-            className={`absolute top-4 right-4 p-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-110 z-10 ${
-              inWishlist
-                ? 'bg-pink-500 text-white'
-                : 'bg-white text-gray-600 hover:text-pink-500'
-            }`}
+          {/* Wishlist */}
+          <motion.button
+            whileTap={{ scale: 0.85 }}
+            onClick={handleWishlist}
+            disabled={wishlisting}
+            aria-label="Toggle wishlist"
+            className={`absolute top-3 right-3 z-10 p-2.5 rounded-full backdrop-blur-md transition-all duration-200 ${inWishlist ? 'bg-red-500 text-white shadow-lg' : 'bg-white/80 text-neutral-700 hover:bg-red-500 hover:text-white shadow-md'
+              }`}
           >
-            <FiHeart
-              className={`text-xl ${inWishlist ? 'fill-current' : ''}`}
-            />
-          </button>
+            <Heart className={`h-4 w-4 ${inWishlist ? 'fill-current' : ''}`} />
+          </motion.button>
 
-          {/* Quick Actions - Show on Hover */}
-          <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <button className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-semibold flex items-center justify-center gap-2">
-              <FiEye />
-              Quick View
-            </button>
-          </div>
+          {/* Quick add - slides up on hover */}
+          {!outOfStock && (
+            <motion.div
+              initial={{ y: '100%' }}
+              whileHover={{ y: 0 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="absolute bottom-0 left-0 right-0"
+              style={{ originY: 1 }}
+            >
+              <div className="mx-3 mb-3">
+                <button className="w-full bg-black text-white py-3 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors">
+                  <ShoppingBag className="h-4 w-4" />
+                  Quick Add
+                </button>
+              </div>
+            </motion.div>
+          )}
         </div>
 
-        {/* Product Info */}
-        <div className="p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-2 hover:text-blue-600 transition-colors line-clamp-2">
+        {/* Info */}
+        <div className="px-1 space-y-1.5">
+          <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-[0.12em]">
+            {product.brand || product.category}
+          </p>
+          <h3 className="text-sm font-bold text-neutral-900 leading-snug line-clamp-2 group-hover:text-neutral-600 transition-colors">
             {product.name}
           </h3>
 
           {/* Rating */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`text-sm ${
-                    i < Math.floor(product.rating)
-                      ? 'text-yellow-400'
-                      : 'text-gray-300'
-                  }`}
-                >
-                  ★
-                </span>
-              ))}
+          {product.rating && product.rating > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <Star key={i} className={`h-3 w-3 ${i <= Math.round(product.rating!) ? 'fill-amber-400 text-amber-400' : 'fill-neutral-200 text-neutral-200'}`} />
+                ))}
+              </div>
+              <span className="text-[11px] text-neutral-400">({product.reviewCount ?? 0})</span>
             </div>
-            <span className="text-sm text-gray-500">
-              ({product.reviewCount})
-            </span>
-          </div>
+          ) : null}
 
-          {/* Price */}
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl font-bold text-gray-900">
-              ${product.price}
+          {/* 3. 🔥 Global Currency & Dynamic Sale Price Display */}
+          <div className="flex items-baseline gap-2 pt-0.5">
+            <span className={`text-base font-black ${outOfStock ? 'text-neutral-400' : product.isSale ? 'text-red-600' : 'text-neutral-900'}`}>
+              {currencyLoading ? '...' : convertPrice(currentPrice)}
             </span>
-            {product.compareAtPrice && (
-              <span className="text-lg text-gray-400 line-through">
-                ${product.compareAtPrice}
+            {originalPrice && (
+              <span className="text-sm font-bold text-neutral-400 line-through">
+                {currencyLoading ? '...' : convertPrice(originalPrice)}
               </span>
             )}
           </div>
-
-          {/* Add to Cart Button */}
-          <button 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              router.push(`/products/${product.slug}`);
-            }}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
-          >
-            <FiShoppingCart />
-            Add to Cart
-          </button>
         </div>
       </Link>
-    </div>
+    </motion.article>
   );
 }

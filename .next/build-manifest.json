@@ -32,10 +32,20 @@
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
+    "/products": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/products.js"
+    ],
     "/products/[slug]": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
       "static/chunks/pages/products/[slug].js"
+    ],
+    "/sale": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/sale.js"
     ]
   },
   "ampFirstPages": []

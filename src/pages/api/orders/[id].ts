@@ -4,6 +4,11 @@ import { authOptions } from '../auth/[...nextauth]';
 import prisma from '@/lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Allow GET and PUT methods
+  if (req.method !== 'GET' && req.method !== 'PUT') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
+
   try {
     const session = await getServerSession(req, res, authOptions);
 
@@ -14,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { id } = req.query;
 
     if (!id || typeof id !== 'string') {
-      return res.status(400).json({ message: 'Order ID is required' });
+      return res.status(400).json({ message: 'Invalid order ID' });
     }
 
     const user = await prisma.user.findUnique({
@@ -25,63 +30,72 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // GET - Fetch single order
-    if (req.method === 'GET') {
-      const order = await prisma.order.findFirst({
-        where: {
-          id,
-          userId: user.id,
-        },
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
-          },
-        },
-      });
+    // Fetch single order details
+    const order = await prisma.order.findUnique({
+      where: { id: id },
+      include: {
+        items: true,
+      },
+    });
 
-      if (!order) {
-        return res.status(404).json({ message: 'Order not found' });
-      }
-
-      return res.status(200).json(order);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
     }
 
-    // PATCH - Update order (cancel)
-    if (req.method === 'PATCH') {
-      const { status } = req.body;
+    // Ensure the user owns this order (Security check)
+    if (order.userId !== user.id && user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
 
-      const order = await prisma.order.findFirst({
-        where: {
-          id,
-          userId: user.id,
-        },
-      });
+    // ==========================================
+    // 🚀 GET REQUEST - Fetch Order Details
+    // ==========================================
+    if (req.method === 'GET') {
+      let formattedShippingAddress = (order as any).shippingAddress;
 
-      if (!order) {
-        return res.status(404).json({ message: 'Order not found' });
+      if (!formattedShippingAddress || typeof formattedShippingAddress !== 'object') {
+        const legacyOrder = order as any;
+        formattedShippingAddress = {
+          name: `${legacyOrder.firstName || ''} ${legacyOrder.lastName || ''}`.trim() || 'Customer',
+          email: legacyOrder.email || session.user.email || '',
+          phone: legacyOrder.phone || '',
+          street: `${legacyOrder.address || ''} ${legacyOrder.apartment || ''}`.trim(),
+          city: legacyOrder.city || '',
+          state: legacyOrder.state || '',
+          zip: legacyOrder.zipCode || legacyOrder.zip || '',
+          country: legacyOrder.country || 'Not Specified'
+        };
       }
 
-      // Only allow cancelling pending/confirmed orders
-      if (order.status !== 'PENDING' && order.status !== 'CONFIRMED') {
-        return res.status(400).json({ message: 'Cannot cancel this order' });
-      }
+      const formattedOrder = {
+        ...order,
+        shippingAddress: formattedShippingAddress,
+        paymentStatus: order.paymentStatus || 'PENDING',
+        paymentMethod: order.paymentMethod || 'cod',
+        status: order.status || 'PENDING',
+      };
+
+      return res.status(200).json(formattedOrder);
+    }
+
+    // ==========================================
+    // 🚀 PUT REQUEST - Automatically Update Payment Method
+    // ==========================================
+    if (req.method === 'PUT') {
+      const { paymentMethod } = req.body;
 
       const updatedOrder = await prisma.order.update({
-        where: { id },
-        data: { status },
-        include: {
-          items: true,
-        },
+        where: { id: id },
+        data: {
+          ...(paymentMethod && { paymentMethod }),
+        }
       });
 
       return res.status(200).json(updatedOrder);
     }
 
-    return res.status(405).json({ message: 'Method not allowed' });
   } catch (error: any) {
-    console.error('Order API error:', error);
+    console.error('Order Detail API error:', error);
     return res.status(500).json({ message: error.message || 'Internal server error' });
   }
 }

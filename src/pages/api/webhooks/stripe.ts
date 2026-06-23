@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { buffer } from 'micro';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 export const config = {
   api: {
@@ -10,12 +9,25 @@ export const config = {
   },
 };
 
+async function getRawBody(req: NextApiRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      resolve(Buffer.from(data));
+    });
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const buf = await buffer(req);
+  const buf = await getRawBody(req);
   const sig = req.headers['stripe-signature'];
 
   if (!sig) {
@@ -40,7 +52,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'payment_intent.succeeded':
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         
-        // Update order status
         await prisma.order.updateMany({
           where: { paymentIntentId: paymentIntent.id },
           data: { paymentStatus: 'paid', status: 'processing' },

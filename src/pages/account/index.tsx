@@ -3,21 +3,13 @@ import { getSession } from 'next-auth/react';
 import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion'; // 🔥 Premium Animations
+import toast, { Toaster } from 'react-hot-toast'; // 🔥 Premium Notifications
 import {
-    FiUser,
-    FiShoppingBag,
-    FiHeart,
-    FiMapPin,
-    FiSettings,
-    FiLogOut,
-    FiEdit3,
-    FiCheck,
-    FiX,
-    FiPackage,
-    FiTruck,
-    FiCheckCircle,
-    FiClock,
-    FiChevronRight
+    FiUser, FiShoppingBag, FiHeart, FiMapPin, FiSettings,
+    FiLogOut, FiEdit3, FiCheck, FiX, FiPackage,
+    FiTruck, FiCheckCircle, FiClock, FiChevronRight,
+    FiPlus, FiEdit2, FiTrash2, FiLock
 } from 'react-icons/fi';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
@@ -36,6 +28,8 @@ interface AccountPageProps {
 export default function AccountPage({ user }: AccountPageProps) {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('profile');
+
+    // Profile States
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [formData, setFormData] = useState({
@@ -43,7 +37,20 @@ export default function AccountPage({ user }: AccountPageProps) {
         email: user.email || '',
     });
 
-    // Fetch orders and wishlist
+    // Address States
+    const [addresses, setAddresses] = useState<any[]>([]);
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [addressForm, setAddressForm] = useState({
+        id: '', name: '', street: '', city: '', state: '', zip: '', country: '', phone: ''
+    });
+
+    // 🔥 NEW: Password Change States
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({
+        currentPassword: '', newPassword: '', confirmPassword: ''
+    });
+
     const { orders, loading: ordersLoading } = useOrders();
     const { wishlist, loading: wishlistLoading } = useWishlist();
 
@@ -52,6 +59,7 @@ export default function AccountPage({ user }: AccountPageProps) {
         router.push('/');
     };
 
+    // Profile Handlers
     const handleSave = async () => {
         setIsSaving(true);
         try {
@@ -63,26 +71,100 @@ export default function AccountPage({ user }: AccountPageProps) {
 
             if (response.ok) {
                 setIsEditing(false);
-                alert('✅ Profile updated successfully!');
+                toast.success('Profile updated successfully! ✨');
                 router.reload();
             } else {
                 const data = await response.json();
-                alert(data.message || 'Failed to update profile');
+                toast.error(data.message || 'Failed to update profile');
             }
         } catch (error) {
-            console.error('Error updating profile:', error);
-            alert('An error occurred while updating profile');
+            toast.error('An error occurred while updating profile');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleCancel = () => {
-        setFormData({
-            name: user.name || '',
-            email: user.email || '',
-        });
+        setFormData({ name: user.name || '', email: user.email || '' });
         setIsEditing(false);
+    };
+
+    // Address Handlers
+    const handleOpenAddressModal = (addressToEdit: any = null) => {
+        if (addressToEdit) setAddressForm(addressToEdit);
+        else setAddressForm({ id: '', name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' });
+        setIsAddressModalOpen(true);
+    };
+
+    const handleSaveAddress = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (addressForm.id) {
+            setAddresses(addresses.map(a => a.id === addressForm.id ? addressForm : a));
+            toast.success('Address updated!');
+        } else {
+            setAddresses([...addresses, { ...addressForm, id: Date.now().toString() }]);
+            toast.success('New address added!');
+        }
+        setIsAddressModalOpen(false);
+    };
+
+    const handleDeleteAddress = (id: string) => {
+        setAddresses(addresses.filter(a => a.id !== id));
+        toast.success('Address deleted');
+    };
+
+    // 🔥 NEW: Password Handlers
+    const handleOpenPasswordModal = () => {
+        if (user.role === 'admin') {
+            toast.error('Access Denied: Admin passwords cannot be modified here.', {
+                icon: '🛑',
+                style: { borderRadius: '10px', background: '#333', color: '#fff' }
+            });
+            return;
+        }
+        setIsPasswordModalOpen(true);
+    };
+
+    const handlePasswordSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Double check admin logic block
+        if (user.role === 'admin') {
+            toast.error('Admin Access Denied!');
+            setIsPasswordModalOpen(false);
+            return;
+        }
+
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            toast.error('New passwords do not match!');
+            return;
+        }
+
+        setIsChangingPassword(true);
+        try {
+            // NOTE: Make sure you have this backend API route created
+            const res = await fetch('/api/user/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    currentPassword: passwordForm.currentPassword,
+                    newPassword: passwordForm.newPassword
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                toast.success('Password updated securely! 🚀');
+                setIsPasswordModalOpen(false);
+                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            } else {
+                toast.error(data.message || 'Incorrect current password');
+            }
+        } catch (err) {
+            toast.error('Something went wrong!');
+        } finally {
+            setIsChangingPassword(false);
+        }
     };
 
     const menuItems = [
@@ -93,12 +175,11 @@ export default function AccountPage({ user }: AccountPageProps) {
         { id: 'settings', label: 'Settings', icon: FiSettings, color: 'from-orange-500 to-orange-600' },
     ];
 
-    // Calculate order stats
     const orderStats = {
-        total: orders.length,
-        pending: orders.filter(o => o.status === 'PENDING' || o.status === 'CONFIRMED').length,
-        inTransit: orders.filter(o => o.status === 'PROCESSING' || o.status === 'SHIPPED').length,
-        delivered: orders.filter(o => o.status === 'DELIVERED').length,
+        total: orders?.length || 0,
+        pending: orders?.filter((o: any) => o.status === 'PENDING' || o.status === 'CONFIRMED').length || 0,
+        inTransit: orders?.filter((o: any) => o.status === 'PROCESSING' || o.status === 'SHIPPED').length || 0,
+        delivered: orders?.filter((o: any) => o.status === 'DELIVERED').length || 0,
     };
 
     const stats = [
@@ -110,21 +191,21 @@ export default function AccountPage({ user }: AccountPageProps) {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'PENDING':
-                return 'bg-yellow-100 text-yellow-800';
-            case 'CONFIRMED':
-                return 'bg-blue-100 text-blue-800';
-            case 'PROCESSING':
-                return 'bg-purple-100 text-purple-800';
-            case 'SHIPPED':
-                return 'bg-indigo-100 text-indigo-800';
-            case 'DELIVERED':
-                return 'bg-green-100 text-green-800';
-            case 'CANCELLED':
-                return 'bg-red-100 text-red-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
+            case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+            case 'CONFIRMED': return 'bg-blue-100 text-blue-800';
+            case 'PROCESSING': return 'bg-purple-100 text-purple-800';
+            case 'SHIPPED': return 'bg-indigo-100 text-indigo-800';
+            case 'DELIVERED': return 'bg-green-100 text-green-800';
+            case 'CANCELLED': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
         }
+    };
+
+    // Framer Motion Variants for smooth Tab Switching
+    const tabVariants = {
+        hidden: { opacity: 0, y: 15 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+        exit: { opacity: 0, y: -10, transition: { duration: 0.2 } }
     };
 
     return (
@@ -134,24 +215,29 @@ export default function AccountPage({ user }: AccountPageProps) {
                 <meta name="description" content="Manage your account settings and orders" />
             </Head>
 
-            {/* Gradient Background */}
+            <Toaster position="top-center" reverseOrder={false} />
+
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
                     {/* Header with Gradient */}
                     <div className="mb-8">
-                        <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-black rounded-2xl p-8 text-white shadow-2xl">
+                        <motion.div
+                            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+                            className="bg-gradient-to-r from-gray-900 via-gray-800 to-black rounded-3xl p-8 text-white shadow-2xl"
+                        >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h1 className="text-4xl font-bold mb-2">Welcome back, {user.name?.split(' ')[0] || 'User'}! 👋</h1>
-                                    <p className="text-gray-300 text-lg">Manage your account and track your orders</p>
+                                    <h1 className="text-4xl font-black mb-2 tracking-tight">Welcome back, {user.name?.split(' ')[0] || 'User'}! 👋</h1>
+                                    <p className="text-gray-300 text-lg font-medium">Manage your account and track your orders</p>
                                 </div>
                                 <div className="hidden md:block">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold">
+                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold shadow-lg ring-4 ring-white/10">
                                         {user.name?.charAt(0).toUpperCase() || 'U'}
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     </div>
 
                     {/* Stats Grid */}
@@ -159,26 +245,27 @@ export default function AccountPage({ user }: AccountPageProps) {
                         {stats.map((stat, index) => {
                             const Icon = stat.icon;
                             return (
-                                <div
+                                <motion.div
                                     key={index}
-                                    className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden cursor-pointer"
+                                    initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.1 }}
+                                    className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer"
                                     onClick={() => stat.label.includes('Order') && setActiveTab('orders')}
                                 >
-                                    <div className={`${stat.color} p-6 text-white`}>
-                                        <Icon className="text-3xl mb-2 opacity-90" />
-                                        <p className="text-sm font-medium opacity-90">{stat.label}</p>
-                                        <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                                    <div className={`${stat.color} p-6 text-white h-full`}>
+                                        <Icon className="text-3xl mb-3 opacity-90" />
+                                        <p className="text-sm font-bold tracking-wider uppercase opacity-90">{stat.label}</p>
+                                        <p className="text-4xl font-black mt-1 tracking-tight">{stat.value}</p>
                                     </div>
-                                </div>
+                                </motion.div>
                             );
                         })}
                     </div>
 
                     {/* Main Content Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         {/* Sidebar Navigation */}
                         <div className="lg:col-span-1">
-                            <div className="bg-white rounded-2xl shadow-lg p-4 sticky top-4">
+                            <div className="bg-white rounded-3xl shadow-xl p-5 sticky top-8">
                                 <div className="space-y-2">
                                     {menuItems.map((item) => {
                                         const Icon = item.icon;
@@ -187,407 +274,456 @@ export default function AccountPage({ user }: AccountPageProps) {
                                             <button
                                                 key={item.id}
                                                 onClick={() => setActiveTab(item.id)}
-                                                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl font-medium transition-all duration-300 group ${isActive
-                                                        ? 'bg-gradient-to-r from-gray-900 to-black text-white shadow-lg scale-105'
-                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-bold transition-all duration-300 group ${isActive
+                                                        ? 'bg-gray-900 text-white shadow-lg shadow-gray-900/20 translate-x-2'
+                                                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                                                     }`}
                                             >
-                                                <div className={`p-2 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
-                                                    <Icon className={`text-xl ${isActive ? 'text-white' : 'text-gray-600'}`} />
+                                                <div className={`p-2.5 rounded-xl transition-colors ${isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
+                                                    <Icon className={`text-xl ${isActive ? 'text-white' : 'text-gray-500'}`} />
                                                 </div>
-                                                <span>{item.label}</span>
-                                                {item.id === 'orders' && orders.length > 0 && (
-                                                    <span className="ml-auto bg-blue-500 text-white text-xs rounded-full px-2 py-1">
+                                                <span className="tracking-wide">{item.label}</span>
+
+                                                {item.id === 'orders' && orders?.length > 0 && (
+                                                    <span className="ml-auto bg-blue-500 text-white text-xs font-black rounded-full px-2.5 py-1">
                                                         {orders.length}
                                                     </span>
                                                 )}
-                                                {item.id === 'wishlist' && wishlist.length > 0 && (
-                                                    <span className="ml-auto bg-pink-500 text-white text-xs rounded-full px-2 py-1">
+                                                {item.id === 'wishlist' && wishlist?.length > 0 && (
+                                                    <span className="ml-auto bg-pink-500 text-white text-xs font-black rounded-full px-2.5 py-1">
                                                         {wishlist.length}
                                                     </span>
                                                 )}
                                             </button>
                                         );
                                     })}
-                                    <button
-                                        onClick={handleLogout}
-                                        className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-red-600 hover:bg-red-50 transition-all duration-300 font-medium group mt-4"
-                                    >
-                                        <div className="p-2 rounded-lg bg-red-50 group-hover:bg-red-100">
-                                            <FiLogOut className="text-xl" />
-                                        </div>
-                                        <span>Logout</span>
-                                    </button>
+                                    <div className="pt-4 mt-4 border-t border-gray-100">
+                                        <button
+                                            onClick={handleLogout}
+                                            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-red-500 hover:bg-red-50 transition-all duration-300 font-bold group"
+                                        >
+                                            <div className="p-2.5 rounded-xl bg-red-50 group-hover:bg-red-100 transition-colors">
+                                                <FiLogOut className="text-xl" />
+                                            </div>
+                                            <span className="tracking-wide">Logout</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Content Area */}
+                        {/* Content Area with AnimatePresence */}
                         <div className="lg:col-span-3">
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                {/* Profile Tab */}
-                                {activeTab === 'profile' && (
-                                    <div className="animate-fadeIn">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <div>
-                                                <h2 className="text-3xl font-bold text-gray-900">Profile Information</h2>
-                                                <p className="text-gray-500 mt-1">Update your personal details</p>
-                                            </div>
-                                            {!isEditing && (
-                                                <button
-                                                    onClick={() => setIsEditing(true)}
-                                                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                                >
-                                                    <FiEdit3 />
-                                                    Edit Profile
-                                                </button>
-                                            )}
-                                        </div>
+                            <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 min-h-[500px]">
+                                <AnimatePresence mode="wait">
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Name Field */}
-                                            <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border border-gray-200">
-                                                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                                                    Full Name
-                                                </label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        value={formData.name}
-                                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                        className="w-full px-4 py-3 border-2 border-gray-200 text-gray-900 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-                                                        placeholder="Enter your name"
-                                                    />
-                                                ) : (
-                                                    <div className="text-xl font-semibold text-gray-900">
-                                                        {user.name || 'Not provided'}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Email Field */}
-                                            <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border border-gray-200">
-                                                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                                                    Email Address
-                                                </label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="email"
-                                                        value={formData.email}
-                                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                        className="w-full px-4 py-3 border-2 border-gray-200 text-gray-900 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-                                                        placeholder="Enter your email"
-                                                    />
-                                                ) : (
-                                                    <div className="text-xl font-semibold text-gray-900">
-                                                        {user.email}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Account Type */}
-                                            <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border border-gray-200">
-                                                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                                                    Account Type
-                                                </label>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`px-4 py-2 rounded-full text-sm font-bold ${user.role === 'admin'
-                                                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                                                            : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                                                        }`}>
-                                                        {user.role.toUpperCase()}
-                                                    </span>
+                                    {/* Profile Tab */}
+                                    {activeTab === 'profile' && (
+                                        <motion.div key="profile" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                                            <div className="flex items-center justify-between mb-8">
+                                                <div>
+                                                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Profile Information</h2>
+                                                    <p className="text-gray-500 mt-1 font-medium">Update your personal details</p>
                                                 </div>
-                                            </div>
-
-                                            {/* Member Since */}
-                                            <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border border-gray-200">
-                                                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                                                    Member Since
-                                                </label>
-                                                <div className="text-xl font-semibold text-gray-900">
-                                                    {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        {isEditing && (
-                                            <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200">
-                                                <button
-                                                    onClick={handleSave}
-                                                    disabled={isSaving}
-                                                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-lg"
-                                                >
-                                                    <FiCheck className="text-xl" />
-                                                    {isSaving ? 'Saving...' : 'Save Changes'}
-                                                </button>
-                                                <button
-                                                    onClick={handleCancel}
-                                                    disabled={isSaving}
-                                                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 disabled:bg-gray-100 transition-all duration-300 font-semibold text-lg"
-                                                >
-                                                    <FiX className="text-xl" />
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Orders Tab */}
-                                {activeTab === 'orders' && (
-                                    <div className="animate-fadeIn">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <div>
-                                                <h2 className="text-3xl font-bold text-gray-900">Order History</h2>
-                                                <p className="text-gray-500 mt-1">Track and manage your orders</p>
-                                            </div>
-                                            {orders.length > 0 && (
-                                                <Link
-                                                    href="/orders"
-                                                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                                >
-                                                    View All
-                                                    <FiChevronRight />
-                                                </Link>
-                                            )}
-                                        </div>
-
-                                        {ordersLoading ? (
-                                            <div className="text-center py-12">
-                                                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                                                <p className="text-gray-600">Loading orders...</p>
-                                            </div>
-                                        ) : orders.length === 0 ? (
-                                            <div className="text-center py-16">
-                                                <div className="inline-block p-6 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full mb-6">
-                                                    <FiShoppingBag className="text-6xl text-purple-600" />
-                                                </div>
-                                                <h3 className="text-2xl font-bold text-gray-900 mb-3">No orders yet</h3>
-                                                <p className="text-gray-500 mb-8 text-lg">Start shopping to see your orders here</p>
-                                                <button
-                                                    onClick={() => router.push('/products')}
-                                                    className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-lg"
-                                                >
-                                                    Start Shopping
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {orders.slice(0, 5).map((order: any) => (
-                                                    <div key={order.id} className="p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                                                        <div className="flex items-center justify-between mb-4">
-                                                            <div>
-                                                                <p className="font-bold text-gray-900 text-lg">Order #{order.orderNumber}</p>
-                                                                <p className="text-sm text-gray-500 mt-1">
-                                                                    {new Date(order.createdAt).toLocaleDateString('en-US', {
-                                                                        year: 'numeric',
-                                                                        month: 'long',
-                                                                        day: 'numeric'
-                                                                    })} • {order.items?.length || 0} items
-                                                                </p>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <p className="font-bold text-gray-900 text-xl">${order.total.toFixed(2)}</p>
-                                                                <span className={`text-xs px-3 py-1 rounded-full font-semibold ${getStatusColor(order.status)}`}>
-                                                                    {order.status}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <Link
-                                                            href={`/orders/${order.id}`}
-                                                            className="w-full py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold flex items-center justify-center gap-2"
-                                                        >
-                                                            View Details
-                                                            <FiChevronRight />
-                                                        </Link>
-                                                    </div>
-                                                ))}
-                                                {orders.length > 5 && (
-                                                    <Link
-                                                        href="/orders"
-                                                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-semibold block text-center"
+                                                {!isEditing && (
+                                                    <button
+                                                        onClick={() => setIsEditing(true)}
+                                                        className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                                                     >
-                                                        View All {orders.length} Orders
+                                                        <FiEdit3 /> Edit Profile
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                {/* Name Field */}
+                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Full Name</label>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="text"
+                                                            value={formData.name}
+                                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                            className="w-full px-4 py-3 border-2 border-gray-200 text-gray-900 font-semibold rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                                        />
+                                                    ) : (
+                                                        <div className="text-xl font-bold text-gray-900">{user.name || 'Not provided'}</div>
+                                                    )}
+                                                </div>
+
+                                                {/* Email Field */}
+                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Email Address</label>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="email"
+                                                            value={formData.email}
+                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                            className="w-full px-4 py-3 border-2 border-gray-200 text-gray-900 font-semibold rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                                        />
+                                                    ) : (
+                                                        <div className="text-xl font-bold text-gray-900">{user.email}</div>
+                                                    )}
+                                                </div>
+
+                                                {/* Account Type */}
+                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Account Type</label>
+                                                    <div className="flex items-center">
+                                                        <span className={`px-4 py-1.5 rounded-full text-xs font-black tracking-wider ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                            }`}>
+                                                            {user.role?.toUpperCase() || 'USER'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Member Since */}
+                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Member Since</label>
+                                                    <div className="text-xl font-bold text-gray-900">
+                                                        {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {isEditing && (
+                                                <div className="flex gap-4 mt-8 pt-6 border-t border-gray-100">
+                                                    <button
+                                                        onClick={handleSave}
+                                                        disabled={isSaving}
+                                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition-all font-bold text-lg"
+                                                    >
+                                                        <FiCheck className="text-xl" /> {isSaving ? 'Saving...' : 'Save Changes'}
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancel}
+                                                        disabled={isSaving}
+                                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-bold text-lg"
+                                                    >
+                                                        <FiX className="text-xl" /> Cancel
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    )}
+
+                                    {/* Orders Tab */}
+                                    {activeTab === 'orders' && (
+                                        <motion.div key="orders" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                                            {/* Purana Orders logic with updated styling */}
+                                            <div className="flex items-center justify-between mb-8">
+                                                <div>
+                                                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Order History</h2>
+                                                    <p className="text-gray-500 mt-1 font-medium">Track and manage your orders</p>
+                                                </div>
+                                                {orders?.length > 0 && (
+                                                    <Link href="/orders" className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold">
+                                                        View All <FiChevronRight />
                                                     </Link>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-                                )}
-                                {/* Wishlist Tab */}
-                                {activeTab === 'wishlist' && (
-                                    <div className="animate-fadeIn">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <div>
-                                                <h2 className="text-3xl font-bold text-gray-900">My Wishlist</h2>
-                                                <p className="text-gray-500 mt-1">Your saved favorite items</p>
-                                            </div>
-                                            {wishlist.length > 0 && (
-                                                <Link href="/wishlist">
-                                                    <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-600 to-red-600 text-white rounded-xl hover:from-pink-700 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                                                        View All
-                                                        <FiChevronRight />
-                                                    </button>
-                                                </Link>
-                                            )}
-                                        </div>
 
-                                        {wishlistLoading ? (
-                                            <div className="text-center py-12">
-                                                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-pink-600 mx-auto mb-4"></div>
-                                                <p className="text-gray-600">Loading wishlist...</p>
-                                            </div>
-                                        ) : wishlist.length === 0 ? (
-                                            <div className="text-center py-16">
-                                                <div className="inline-block p-6 bg-gradient-to-br from-pink-100 to-red-100 rounded-full mb-6">
-                                                    <FiHeart className="text-6xl text-pink-600" />
+                                            {ordersLoading ? (
+                                                <div className="text-center py-12">
+                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-900 mx-auto mb-4"></div>
                                                 </div>
-                                                <h3 className="text-2xl font-bold text-gray-900 mb-3">Your wishlist is empty</h3>
-                                                <p className="text-gray-500 mb-8 text-lg">Save items you love for later</p>
-                                                <button
-                                                    onClick={() => router.push('/products')}
-                                                    className="px-8 py-4 bg-gradient-to-r from-pink-600 to-red-600 text-white rounded-xl hover:from-pink-700 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-lg"
-                                                >
-                                                    Browse Products
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <p className="text-gray-600 mb-4">{wishlist.length} items in your wishlist</p>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {wishlist.slice(0, 6).map((item: any) => (
-                                                        <div key={item.id} className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                                                            <div className="flex gap-4">
-                                                                <img
-                                                                    src={item.product.image}
-                                                                    alt={item.product.name}
-                                                                    className="w-20 h-20 object-cover rounded-lg"
-                                                                />
-                                                                <div className="flex-1">
-                                                                    <h4 className="font-semibold text-gray-900 line-clamp-1">{item.product.name}</h4>
-                                                                    <p className="text-lg font-bold text-gray-900 mt-1">${item.product.price}</p>
-                                                                    <Link href={`/products/${item.product.slug}`}>
-                                                                        <button className="text-sm text-blue-600 hover:text-blue-700 font-medium mt-1">
-                                                                            View Product →
-                                                                        </button>
-                                                                    </Link>
+                                            ) : orders?.length === 0 ? (
+                                                <div className="text-center py-16 bg-gray-50 rounded-3xl border border-gray-100">
+                                                    <FiShoppingBag className="text-6xl text-gray-300 mx-auto mb-4" />
+                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">No orders yet</h3>
+                                                    <p className="text-gray-500 mb-8 font-medium">Start shopping to see your orders here</p>
+                                                    <button onClick={() => router.push('/products')} className="px-8 py-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-lg">
+                                                        Start Shopping
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {orders?.slice(0, 5).map((order: any) => (
+                                                        <div key={order.id} className="p-6 bg-white border-2 border-gray-100 rounded-2xl hover:border-gray-200 transition-colors">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <div>
+                                                                    <p className="font-black text-gray-900 text-lg tracking-tight">Order #{order.orderNumber}</p>
+                                                                    <p className="text-sm text-gray-500 font-medium mt-1">
+                                                                        {new Date(order.createdAt).toLocaleDateString()} • {order.items?.length || 0} items
+                                                                    </p>
                                                                 </div>
+                                                                <div className="text-right">
+                                                                    <p className="font-black text-gray-900 text-xl">${order.total.toFixed(2)}</p>
+                                                                    <span className={`text-xs px-3 py-1 rounded-full font-black tracking-wider inline-block mt-2 ${getStatusColor(order.status)}`}>
+                                                                        {order.status}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <Link href={`/orders/${order.id}`} className="w-full py-3 bg-gray-50 text-gray-900 rounded-xl hover:bg-gray-100 transition-colors font-bold flex items-center justify-center gap-2">
+                                                                View Details <FiChevronRight />
+                                                            </Link>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    )}
+
+                                    {/* Wishlist Tab */}
+                                    {activeTab === 'wishlist' && (
+                                        <motion.div key="wishlist" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                                            {/* Wishlist Logic mapped properly */}
+                                            <div className="flex items-center justify-between mb-8">
+                                                <div>
+                                                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">My Wishlist</h2>
+                                                    <p className="text-gray-500 mt-1 font-medium">Your saved favorite items</p>
+                                                </div>
+                                            </div>
+
+                                            {wishlistLoading ? (
+                                                <div className="text-center py-12">
+                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-900 mx-auto mb-4"></div>
+                                                </div>
+                                            ) : wishlist?.length === 0 ? (
+                                                <div className="text-center py-16 bg-gray-50 rounded-3xl border border-gray-100">
+                                                    <FiHeart className="text-6xl text-gray-300 mx-auto mb-4" />
+                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">Your wishlist is empty</h3>
+                                                    <button onClick={() => router.push('/products')} className="mt-6 px-8 py-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-lg">
+                                                        Browse Products
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {wishlist?.slice(0, 6).map((item: any) => (
+                                                        <div key={item.id} className="p-4 bg-white border-2 border-gray-100 rounded-2xl hover:border-gray-200 transition-colors flex gap-4 items-center">
+                                                            <img src={item.product?.image || ''} alt="Product" className="w-20 h-20 object-cover rounded-xl bg-gray-50 mix-blend-multiply" />
+                                                            <div className="flex-1">
+                                                                <h4 className="font-bold text-gray-900 line-clamp-1 tracking-tight">{item.product?.name}</h4>
+                                                                <p className="text-lg font-black text-gray-900 mt-1">${item.product?.price}</p>
+                                                                <Link href={`/products/${item.product?.slug || ''}`}>
+                                                                    <button className="text-xs font-black tracking-widest uppercase text-blue-600 hover:text-blue-700 mt-2">
+                                                                        View Product →
+                                                                    </button>
+                                                                </Link>
                                                             </div>
                                                         </div>
                                                     ))}
                                                 </div>
-                                                {wishlist.length > 6 && (
-                                                    <Link href="/wishlist">
-                                                        <button className="w-full py-3 bg-gradient-to-r from-pink-600 to-red-600 text-white rounded-xl hover:from-pink-700 hover:to-red-700 transition-all duration-300 font-semibold mt-4">
-                                                            View All {wishlist.length} Items
-                                                        </button>
-                                                    </Link>
+                                            )}
+                                        </motion.div>
+                                    )}
+
+                                    {/* Addresses Tab */}
+                                    {activeTab === 'addresses' && (
+                                        <motion.div key="addresses" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                                            <div className="flex items-center justify-between mb-8">
+                                                <h2 className="text-3xl font-black text-gray-900 tracking-tight">Saved Addresses</h2>
+                                                {addresses.length > 0 && (
+                                                    <button onClick={() => handleOpenAddressModal()} className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold">
+                                                        <FiPlus /> Add New
+                                                    </button>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-                                )}
 
-                                {/* Addresses Tab */}
-                                {activeTab === 'addresses' && (
-                                    <div className="animate-fadeIn">
-                                        <h2 className="text-3xl font-bold text-gray-900 mb-8">Saved Addresses</h2>
-                                        <div className="text-center py-16">
-                                            <div className="inline-block p-6 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full mb-6">
-                                                <FiMapPin className="text-6xl text-green-600" />
-                                            </div>
-                                            <h3 className="text-2xl font-bold text-gray-900 mb-3">No saved addresses</h3>
-                                            <p className="text-gray-500 mb-8 text-lg">Add addresses for faster checkout</p>
-                                            <button className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-lg">
-                                                Add New Address
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
+                                            {addresses.length === 0 ? (
+                                                <div className="text-center py-16 bg-gray-50 rounded-3xl border border-gray-100">
+                                                    <FiMapPin className="text-6xl text-gray-300 mx-auto mb-4" />
+                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">No saved addresses</h3>
+                                                    <button onClick={() => handleOpenAddressModal()} className="mt-6 px-8 py-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-lg">
+                                                        Add New Address
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {addresses.map((address) => (
+                                                        <div key={address.id} className="border-2 border-gray-100 rounded-2xl p-6 bg-white hover:border-gray-200 transition-colors relative group">
+                                                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button onClick={() => handleOpenAddressModal(address)} className="p-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200"><FiEdit2 size={16} /></button>
+                                                                <button onClick={() => handleDeleteAddress(address.id)} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100"><FiTrash2 size={16} /></button>
+                                                            </div>
+                                                            <h4 className="font-black text-lg text-gray-900 mb-2">{address.name}</h4>
+                                                            <p className="text-gray-600 font-medium">{address.street}</p>
+                                                            <p className="text-gray-600 font-medium">{address.city}, {address.state} {address.zip}</p>
+                                                            <p className="text-gray-600 font-medium">{address.country}</p>
+                                                            <p className="text-gray-900 font-bold mt-3 flex items-center gap-2">📞 {address.phone}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    )}
 
-                                {/* Settings Tab */}
-                                {activeTab === 'settings' && (
-                                    <div className="animate-fadeIn">
-                                        <h2 className="text-3xl font-bold text-gray-900 mb-8">Account Settings</h2>
-                                        <div className="space-y-6">
-                                            {/* Password Section */}
-                                            <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-6 rounded-xl border border-orange-200">
-                                                <label className="block text-lg font-semibold text-gray-900 mb-3">
-                                                    Password & Security
-                                                </label>
-                                                <p className="text-gray-600 mb-4">Update your password to keep your account secure</p>
-                                                <button className="px-6 py-3 bg-gradient-to-r from-orange-600 to-yellow-600 text-white rounded-lg hover:from-orange-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg font-semibold">
-                                                    Change Password
-                                                </button>
-                                            </div>
+                                    {/* Settings Tab - 🔥 UPDATED FOR PASSWORD */}
+                                    {activeTab === 'settings' && (
+                                        <motion.div key="settings" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                                            <h2 className="text-3xl font-black text-gray-900 mb-8 tracking-tight">Account Settings</h2>
 
-                                            {/* Notifications */}
-                                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
-                                                <label className="block text-lg font-semibold text-gray-900 mb-4">
-                                                    Notifications
-                                                </label>
-                                                <div className="space-y-4">
-                                                    <label className="flex items-center gap-4 cursor-pointer group">
-                                                        <input type="checkbox" defaultChecked className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
-                                                        <div>
-                                                            <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">Order Updates</p>
-                                                            <p className="text-sm text-gray-500">Get notified about your order status</p>
-                                                        </div>
+                                            <div className="space-y-6">
+                                                {/* 🔥 Functional Password Section */}
+                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                                    <div className="flex items-center gap-3 mb-3">
+                                                        <FiLock className="text-2xl text-gray-900" />
+                                                        <label className="block text-xl font-black text-gray-900">
+                                                            Password & Security
+                                                        </label>
+                                                    </div>
+                                                    <p className="text-gray-600 mb-6 font-medium">Update your password to keep your account secure. Admin access restricted.</p>
+                                                    <button
+                                                        onClick={handleOpenPasswordModal}
+                                                        className="px-8 py-3.5 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-md"
+                                                    >
+                                                        Change Password
+                                                    </button>
+                                                </div>
+
+                                                {/* Notifications Section */}
+                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                                    <label className="block text-xl font-black text-gray-900 mb-6">
+                                                        Notifications
                                                     </label>
-                                                    <label className="flex items-center gap-4 cursor-pointer group">
-                                                        <input type="checkbox" defaultChecked className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
-                                                        <div>
-                                                            <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">Promotions & Offers</p>
-                                                            <p className="text-sm text-gray-500">Receive exclusive deals and discounts</p>
-                                                        </div>
+                                                    <div className="space-y-5">
+                                                        {[
+                                                            { title: 'Order Updates', desc: 'Get notified about your order status', default: true },
+                                                            { title: 'Promotions & Offers', desc: 'Receive exclusive deals and discounts', default: true },
+                                                            { title: 'Newsletter', desc: 'Weekly updates on new arrivals', default: false }
+                                                        ].map((notif, idx) => (
+                                                            <label key={idx} className="flex items-center gap-4 cursor-pointer group p-3 hover:bg-white rounded-xl transition-colors">
+                                                                <input type="checkbox" defaultChecked={notif.default} className="w-5 h-5 text-gray-900 rounded focus:ring-2 focus:ring-gray-900 border-gray-300" />
+                                                                <div>
+                                                                    <p className="font-bold text-gray-900">{notif.title}</p>
+                                                                    <p className="text-sm font-medium text-gray-500">{notif.desc}</p>
+                                                                </div>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Danger Zone */}
+                                                <div className="bg-red-50 p-6 rounded-2xl border-2 border-red-100">
+                                                    <label className="block text-xl font-black text-red-600 mb-3">
+                                                        ⚠️ Danger Zone
                                                     </label>
-                                                    <label className="flex items-center gap-4 cursor-pointer group">
-                                                        <input type="checkbox" className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
-                                                        <div>
-                                                            <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">Newsletter</p>
-                                                            <p className="text-sm text-gray-500">Weekly updates on new arrivals</p>
-                                                        </div>
-                                                    </label>
+                                                    <p className="text-red-800/70 mb-6 font-medium">Once you delete your account, there is no going back. Please be certain.</p>
+                                                    <button className="px-8 py-3.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-bold shadow-md shadow-red-200">
+                                                        Delete Account
+                                                    </button>
                                                 </div>
                                             </div>
-
-                                            {/* Danger Zone */}
-                                            <div className="bg-gradient-to-br from-red-50 to-pink-50 p-6 rounded-xl border-2 border-red-200">
-                                                <label className="block text-lg font-semibold text-red-600 mb-3">
-                                                    ⚠️ Danger Zone
-                                                </label>
-                                                <p className="text-gray-600 mb-4">Once you delete your account, there is no going back</p>
-                                                <button className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg hover:from-red-700 hover:to-pink-700 transition-all duration-300 shadow-md hover:shadow-lg font-semibold">
-                                                    Delete Account
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
+            {/* Address Modal */}
+            <AnimatePresence>
+                {isAddressModalOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+                            className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden"
+                        >
+                            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                                    {addressForm.id ? 'Edit Address' : 'Add New Address'}
+                                </h3>
+                                <button onClick={() => setIsAddressModalOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 rounded-full hover:bg-gray-200">
+                                    <FiX size={24} />
+                                </button>
+                            </div>
+                            <form onSubmit={handleSaveAddress} className="p-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Name</label>
+                                        <input required type="text" value={addressForm.name} onChange={e => setAddressForm({ ...addressForm, name: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="John Doe" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Street Address</label>
+                                        <input required type="text" value={addressForm.street} onChange={e => setAddressForm({ ...addressForm, street: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="123 Main St" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">City</label>
+                                        <input required type="text" value={addressForm.city} onChange={e => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="New York" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">State / Province</label>
+                                        <input required type="text" value={addressForm.state} onChange={e => setAddressForm({ ...addressForm, state: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="NY" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">ZIP / Postal</label>
+                                        <input required type="text" value={addressForm.zip} onChange={e => setAddressForm({ ...addressForm, zip: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="10001" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Country</label>
+                                        <input required type="text" value={addressForm.country} onChange={e => setAddressForm({ ...addressForm, country: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="United States" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
+                                        <input required type="tel" value={addressForm.phone} onChange={e => setAddressForm({ ...addressForm, phone: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="+1 (555) 000-0000" />
+                                    </div>
+                                </div>
+                                <div className="mt-8 flex gap-4">
+                                    <button type="button" onClick={() => setIsAddressModalOpen(false)} className="flex-1 py-4 bg-gray-100 text-gray-900 font-bold rounded-xl hover:bg-gray-200 transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" className="flex-1 py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg">
+                                        Save Address
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out;
-        }
-      `}</style>
+            {/* 🔥 NEW: Password Modal */}
+            <AnimatePresence>
+                {isPasswordModalOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+                            className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden"
+                        >
+                            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                                    Change Password
+                                </h3>
+                                <button onClick={() => setIsPasswordModalOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 rounded-full hover:bg-gray-200">
+                                    <FiX size={24} />
+                                </button>
+                            </div>
+                            <form onSubmit={handlePasswordSubmit} className="p-8">
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Current Password</label>
+                                        <input required type="password" value={passwordForm.currentPassword} onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="••••••••" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">New Password</label>
+                                        <input required type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="••••••••" minLength={6} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Confirm New Password</label>
+                                        <input required type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="••••••••" minLength={6} />
+                                    </div>
+                                </div>
+                                <div className="mt-8 flex gap-4">
+                                    <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="flex-1 py-4 bg-gray-100 text-gray-900 font-bold rounded-xl hover:bg-gray-200 transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" disabled={isChangingPassword} className="flex-1 py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg disabled:opacity-50">
+                                        {isChangingPassword ? 'Updating...' : 'Update'}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </>
     );
 }

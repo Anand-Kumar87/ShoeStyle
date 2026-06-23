@@ -5,7 +5,7 @@ interface SEOProps {
   description: string;
   image?: string;
   url?: string;
-  type?: 'website' | 'article' | 'product';
+  type?: 'website' | 'article';
   keywords?: string[];
 }
 
@@ -30,7 +30,7 @@ export const generateSEO = ({
       images: [{ url: image }],
       url,
       siteName,
-      type,
+      type: type as 'website' | 'article',
     },
     twitter: {
       card: 'summary_large_image',

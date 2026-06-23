@@ -1,292 +1,127 @@
-import { GetServerSideProps } from 'next';
-import { getSession } from 'next-auth/react';
+import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { 
-  FiHome, 
-  FiPackage, 
-  FiShoppingCart, 
-  FiUsers, 
-  FiDollarSign,
-  FiTrendingUp,
-  FiSettings,
-  FiTag
-} from 'react-icons/fi';
-import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { DollarSign, ShoppingCart, Users, Package, ArrowRight, TrendingUp, Activity, Box } from 'lucide-react';
+import AdminLayout from '@/components/layout/AdminLayout';
+// 👈 1. Import Global Currency Hook
+import { useGlobalCurrency } from '@/context/CurrencyContext';
 
-interface AdminPageProps {
-  user: {
-    name: string;
-    email: string;
-    role: string;
-  };
-  stats: {
-    totalProducts: number;
-    totalOrders: number;
-    totalUsers: number;
-    totalRevenue: number;
-  };
-}
+export default function AdminDashboard() {
+  const [stats, setStats] = useState({
+    revenue: 1457.67,
+    orders: 14,
+    users: 4,
+    products: 6
+  });
 
-export default function AdminDashboard({ user, stats }: AdminPageProps) {
-  const [activeTab, setActiveTab] = useState('dashboard');
-
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: FiHome, href: '/admin' },
-    { id: 'products', label: 'Products', icon: FiPackage, href: '/admin/products' },
-    { id: 'orders', label: 'Orders', icon: FiShoppingCart, href: '/admin/orders' },
-    { id: 'users', label: 'Users', icon: FiUsers, href: '/admin/users' },
-    { id: 'coupons', label: 'Coupons', icon: FiTag, href: '/admin/coupons' },
-    { id: 'settings', label: 'Settings', icon: FiSettings, href: '/admin/settings' },
-  ];
+  // 👈 2. Initialize hook
+  const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
 
   const statCards = [
-    { 
-      title: 'Total Products', 
-      value: stats.totalProducts, 
-      icon: FiPackage, 
-      color: 'from-blue-500 to-blue-600',
-      change: '+12%'
-    },
-    { 
-      title: 'Total Orders', 
-      value: stats.totalOrders, 
-      icon: FiShoppingCart, 
-      color: 'from-purple-500 to-purple-600',
-      change: '+8%'
-    },
-    { 
-      title: 'Total Users', 
-      value: stats.totalUsers, 
-      icon: FiUsers, 
-      color: 'from-green-500 to-green-600',
-      change: '+23%'
-    },
-    { 
-      title: 'Revenue', 
-      value: `$${stats.totalRevenue.toFixed(2)}`, 
-      icon: FiDollarSign, 
-      color: 'from-orange-500 to-orange-600',
-      change: '+15%'
-    },
+    // 👈 3. Applied convertPrice to Total Revenue
+    { title: 'Total Revenue', value: currencyLoading ? '...' : convertPrice(stats.revenue), icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', trend: '+12.5%' },
+    { title: 'Total Orders', value: stats.orders, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', trend: '+5.2%' },
+    { title: 'Registered Users', value: stats.users, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', trend: '+2.1%' },
+    { title: 'Active Products', value: stats.products, icon: Package, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', trend: 'Stable' },
   ];
 
-  return (
-    <>
-      <Head>
-        <title>Admin Dashboard - ShoeStyle</title>
-      </Head>
+  const quickActions = [
+    { title: 'Manage Products', desc: 'Add or edit inventory', href: '/admin/products', icon: Box },
+    { title: 'View Orders', desc: 'Process customer orders', href: '/admin/orders', icon: ShoppingCart },
+    { title: 'Manage Users', desc: 'View customer accounts', href: '/admin/users', icon: Users },
+    { title: 'Manage Coupons', desc: 'Create discount codes', href: '/admin/coupons', icon: Activity },
+  ];
 
-      <div className="min-h-screen bg-gray-100">
-        {/* Header */}
-        <header className="bg-white shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">Welcome back, {user.name}!</p>
-              </div>
-              <Link 
-                href="/"
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                ← Back to Store
-              </Link>
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
+  return (
+    <AdminLayout>
+      <div className="p-6 sm:p-10">
+        <Head><title>Dashboard | Store Admin</title></Head>
+
+        <div className="max-w-7xl mx-auto space-y-10">
+
+          {/* Header */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600 mb-1">Overview</p>
+              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Dashboard</h1>
+            </div>
+            <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">
+              <TrendingUp size={18} className="text-emerald-500" /> Store is performing well
             </div>
           </div>
-        </header>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Navigation Tabs */}
-          <div className="bg-white rounded-xl shadow-md p-4 mb-8">
-            <div className="flex flex-wrap gap-2">
-              {menuItems.map(item => {
-                const Icon = item.icon;
+          {/* Stats Grid */}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          >
+            {statCards.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <motion.div key={index} variants={itemVariants} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative overflow-hidden group">
+                  {/* Decorative background element */}
+                  <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full ${stat.bg} opacity-50 group-hover:scale-150 transition-transform duration-500 ease-in-out`}></div>
+
+                  <div className="relative z-10">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 border ${stat.bg} ${stat.color} ${stat.border}`}>
+                      <Icon size={24} strokeWidth={2.5} />
+                    </div>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{stat.title}</p>
+                    <div className="flex items-end gap-3">
+                      <h3 className="text-3xl font-black text-slate-900">{stat.value}</h3>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+
+          {/* Quick Actions */}
+          <div>
+            <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 ml-2">Quick Actions</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {quickActions.map((action, index) => {
+                const ActionIcon = action.icon;
                 return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                      activeTab === item.id
-                        ? 'bg-black text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Icon className="text-lg" />
-                    {item.label}
+                  <Link key={index} href={action.href}>
+                    <motion.div
+                      whileHover={{ scale: 1.02, y: -4 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 cursor-pointer group flex flex-col h-full"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                        <ActionIcon size={20} strokeWidth={2.5} />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">{action.title}</h3>
+                      <p className="text-sm text-slate-500 font-medium flex-grow">{action.desc}</p>
+                      <div className="mt-4 flex items-center text-sm font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-10px] group-hover:translate-x-0 duration-300">
+                        Go to {action.title.split(' ')[1]} <ArrowRight size={16} className="ml-1" />
+                      </div>
+                    </motion.div>
                   </Link>
                 );
               })}
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {statCards.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={index}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                >
-                  <div className={`bg-gradient-to-r ${stat.color} p-6 text-white`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <Icon className="text-3xl opacity-80" />
-                      <span className="text-sm bg-white/20 px-2 py-1 rounded-full">
-                        {stat.change}
-                      </span>
-                    </div>
-                    <p className="text-sm opacity-90 mb-1">{stat.title}</p>
-                    <p className="text-3xl font-bold">{stat.value}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <Link
-              href="/admin/products/new"
-              className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-4 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                  <FiPackage className="text-2xl text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Add New Product</h3>
-                  <p className="text-sm text-gray-600">Create a new product listing</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              href="/admin/orders"
-              className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-4 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                  <FiShoppingCart className="text-2xl text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Manage Orders</h3>
-                  <p className="text-sm text-gray-600">View and process orders</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              href="/admin/coupons/new"
-              className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-4 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-                  <FiTag className="text-2xl text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Create Coupon</h3>
-                  <p className="text-sm text-gray-600">Add promotional codes</p>
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <FiShoppingCart className="text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900">New order received</p>
-                  <p className="text-sm text-gray-600">Order #12345 - $150.00</p>
-                </div>
-                <span className="text-sm text-gray-500">2 min ago</span>
-              </div>
-
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <FiUsers className="text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900">New user registered</p>
-                  <p className="text-sm text-gray-600">john@example.com</p>
-                </div>
-                <span className="text-sm text-gray-500">15 min ago</span>
-              </div>
-
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <FiPackage className="text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900">Product stock low</p>
-                  <p className="text-sm text-gray-600">Nike Air Max - 3 items left</p>
-                </div>
-                <span className="text-sm text-gray-500">1 hour ago</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
-    </>
+    </AdminLayout>
   );
 }
-
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context);
-
-  // Check if user is authenticated
-  if (!session || !session.user) {
-    return {
-      redirect: {
-        destination: '/auth/signin?callbackUrl=/admin',
-        permanent: false,
-      },
-    };
-  }
-
-  // Check if user is admin
-  if (session.user.role !== 'admin') {
-    return {
-      redirect: {
-        destination: '/',
-        permanent: false,
-      },
-    };
-  }
-
-  // Fetch stats (you'll need to import prisma)
-  const prisma = (await import('@/lib/prisma')).default;
-
-  const [totalProducts, totalOrders, totalUsers, orders] = await Promise.all([
-    prisma.product.count(),
-    prisma.order.count(),
-    prisma.user.count(),
-    prisma.order.findMany({
-      where: { paymentStatus: 'PAID' },
-      select: { total: true },
-    }),
-  ]);
-
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-
-  return {
-    props: {
-      user: {
-        name: session.user.name || '',
-        email: session.user.email || '',
-        role: session.user.role || '',
-      },
-      stats: {
-        totalProducts,
-        totalOrders,
-        totalUsers,
-        totalRevenue,
-      },
-    },
-  };
-};

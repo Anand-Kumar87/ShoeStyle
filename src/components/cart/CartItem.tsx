@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Trash2, Plus, Minus } from 'lucide-react';
 import { CartItem as CartItemType } from '@/types/cart';
+// 👈 1. Import Global Currency Hook
+import { useGlobalCurrency } from '@/context/CurrencyContext';
 
 interface CartItemProps {
   item: CartItemType;
@@ -13,6 +15,9 @@ interface CartItemProps {
 }
 
 const CartItem: React.FC<CartItemProps> = ({ item, onUpdateQuantity, onRemove }) => {
+  // 👈 2. Initialize hook
+  const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
+
   return (
     <div className="flex gap-4 rounded-lg border border-neutral-200 p-4">
       {/* Image */}
@@ -74,11 +79,13 @@ const CartItem: React.FC<CartItemProps> = ({ item, onUpdateQuantity, onRemove })
           {/* Price */}
           <div className="text-right">
             <p className="font-semibold text-neutral-900">
-              ${(item.price * item.quantity).toFixed(2)}
+              {/* 👈 3. Convert Price x Quantity */}
+              {currencyLoading ? '...' : convertPrice(item.price * item.quantity)}
             </p>
             {item.quantity > 1 && (
               <p className="text-xs text-neutral-500">
-                ${item.price.toFixed(2)} each
+                {/* 👈 4. Convert single item price */}
+                {currencyLoading ? '...' : convertPrice(item.price)} each
               </p>
             )}
           </div>

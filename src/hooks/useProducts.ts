@@ -1,69 +1,59 @@
-'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { Product } from '@/types/product';
 
-import { useState, useEffect } from 'react';
-import { Product, ProductFilters } from '@/types/product';
-
-interface UseProductsOptions {
-  filters?: ProductFilters;
+interface UseProductsParams {
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  search?: string;
+  sortBy?: string;
+  colors?: string[];
+  sizes?: string[];
+  isNew?: boolean;
+  isFeatured?: boolean;
   limit?: number;
+  offset?: number;
 }
 
-export const useProducts = (options: UseProductsOptions = {}) => {
+function useProducts(params: UseProductsParams = {}) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setIsLoading(true);
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoading(true);
       setError(null);
 
-      try {
-        const queryParams = new URLSearchParams();
+      const query = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          query.set(key, Array.isArray(value) ? value.join(',') : String(value));
+        }
+      });
 
-        if (options.filters?.category) {
-          queryParams.append('category', options.filters.category);
-        }
-        if (options.filters?.minPrice) {
-          queryParams.append('minPrice', options.filters.minPrice.toString());
-        }
-        if (options.filters?.maxPrice) {
-          queryParams.append('maxPrice', options.filters.maxPrice.toString());
-        }
-        if (options.filters?.search) {
-          queryParams.append('search', options.filters.search);
-        }
-        if (options.filters?.sortBy) {
-          queryParams.append('sortBy', options.filters.sortBy);
-        }
-        if (options.limit) {
-          queryParams.append('limit', options.limit.toString());
-        }
+      const res = await fetch(`/api/products?${query.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch products');
 
-        const response = await fetch(`/api/products?${queryParams.toString()}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
-        }
+      const data = await res.json();
+      setProducts(data.products || []);
+      setTotal(data.total || 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [JSON.stringify(params)]);
 
-        const data = await response.json();
-        setProducts(data.products || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+  useEffect(() => {
     fetchProducts();
-  }, [
-    options.filters?.category,
-    options.filters?.minPrice,
-    options.filters?.maxPrice,
-    options.filters?.search,
-    options.filters?.sortBy,
-    options.limit,
-  ]);
+  }, [fetchProducts]);
 
-  return { products, isLoading, error };
-};
+  return { products, loading, error, total, refetch: fetchProducts };
+}
+
+// support both default and named imports
+export { useProducts };
+export default useProducts;

@@ -1,4 +1,5 @@
 export interface Product {
+  brand: string;
   id: string;
   slug: string;
   name: string;

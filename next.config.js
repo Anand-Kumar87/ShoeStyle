@@ -2,6 +2,8 @@
 const nextConfig = {
     reactStrictMode: true,
 
+    // 🔥 Eslint block removed because Next.js 16 doesn't support it here anymore
+
     // Image configuration - Add external domains
     images: {
         remotePatterns: [
@@ -11,7 +13,7 @@ const nextConfig = {
             },
             {
                 protocol: 'https',
-                hostname: '**.ftcdn.net', // Allow all ftcdn subdomains
+                hostname: '**.ftcdn.net',
             },
             {
                 protocol: 'https',
@@ -21,18 +23,31 @@ const nextConfig = {
                 protocol: 'https',
                 hostname: 'res.cloudinary.com',
             },
+            {
+                protocol: 'https',
+                hostname: 'lh3.googleusercontent.com',
+            },
+            {
+                protocol: 'https',
+                hostname: 'www.nike.ae',
+            },
+            {
+                protocol: 'https',
+                hostname: 'via.placeholder.com',
+            }
         ],
         formats: ['image/webp', 'image/avif'],
     },
 
-    // Reduce webpack cache size (FIX for memory issue)
+    // 🔥 NAYA FIX: Next.js 16 Turbopack Crash Error ko theek karne ke liye
+    turbopack: {},
+
+    // Reduce webpack cache size (For production / when not using Turbopack)
     webpack: (config, { dev, isServer }) => {
-        // Disable persistent caching in development
         if (dev) {
             config.cache = false;
         }
 
-        // Reduce memory usage
         config.optimization = {
             ...config.optimization,
             moduleIds: 'deterministic',
@@ -44,7 +59,7 @@ const nextConfig = {
 
     // Experimental features
     experimental: {
-        optimizeCss: false, // Disable CSS optimization in dev
+        optimizeCss: false,
     },
 };
 
