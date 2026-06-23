@@ -27,12 +27,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       where: { email: session.user.email },
     });
 
-    // 🔥 FIX: Changed 'user.password' to 'user.hashedPassword'
+    // 🔥 FIX: 'password' ki jagah 'hashedPassword'
     if (!user || !user.hashedPassword) {
       return res.status(404).json({ message: 'User not found or uses external provider (Google)' });
     }
 
-    // 🔥 FIX: Changed 'user.password' to 'user.hashedPassword' for comparison
+    // 🔥 FIX: Yahan bhi 'hashedPassword'
     const isPasswordValid = await bcrypt.compare(currentPassword, user.hashedPassword);
 
     if (!isPasswordValid) {
