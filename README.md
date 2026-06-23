@@ -9,6 +9,17 @@
 
 A premium, modern shoe store built with **Next.js**, **React**, and **MongoDB** — inspired by the sleek design language of Nike.
 
+2. # 👟 ShoeStyle
+
+[![Build Status](https://img.shields.io/github/actions/workflow/status/Anand-Kumar87/ShoeStyle/ci.yml?branch=main&style=for-the-badge)]()
+[![Deployment](https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)]()
+[![License](https://img.shields.io/github/license/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
+[![Issues](https://img.shields.io/github/issues/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
+[![Stars](https://img.shields.io/github/stars/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
+[![Forks](https://img.shields.io/github/forks/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
+
+A premium, modern shoe store built with **Next.js**, **React**, and **MongoDB** — inspired by the sleek design language of Nike.
+
 
 # ShoeStyle - E-commerce Store
 
@@ -41,18 +52,6 @@ A modern, full-stack e-commerce application built with Next.js, TypeScript, Pris
 ## 📦 Installation
 
 1. **Clone the repository**
-
-2. # 👟 ShoeStyle
-
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Anand-Kumar87/ShoeStyle/ci.yml?branch=main&style=for-the-badge)]()
-[![Deployment](https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)]()
-[![License](https://img.shields.io/github/license/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
-[![Issues](https://img.shields.io/github/issues/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
-[![Stars](https://img.shields.io/github/stars/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
-[![Forks](https://img.shields.io/github/forks/Anand-Kumar87/ShoeStyle?style=for-the-badge)]()
-
-A premium, modern shoe store built with **Next.js**, **React**, and **MongoDB** — inspired by the sleek design language of Nike.
-
 
 ```bash
 git clone https://github.com/yourusername/shoe-store.git
