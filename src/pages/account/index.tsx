@@ -3,8 +3,8 @@ import { getSession } from 'next-auth/react';
 import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion'; // 🔥 Premium Animations
-import toast, { Toaster } from 'react-hot-toast'; // 🔥 Premium Notifications
+import { motion, AnimatePresence } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast';
 import {
     FiUser, FiShoppingBag, FiHeart, FiMapPin, FiSettings,
     FiLogOut, FiEdit3, FiCheck, FiX, FiPackage,
@@ -15,7 +15,7 @@ import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { useOrders } from '@/hooks/useOrders';
 import { useWishlist } from '@/hooks/useWishlist';
-import { useCurrency } from '@/context/CurrencyContext'; // 🔥 NEW: Imported Currency Context
+import { useGlobalCurrency } from '@/context/CurrencyContext'; // 🔥 Asli Hook Import kiya
 
 interface AccountPageProps {
     user: {
@@ -28,7 +28,7 @@ interface AccountPageProps {
 
 export default function AccountPage({ user }: AccountPageProps) {
     const router = useRouter();
-    const { formatPrice } = useCurrency(); // 🔥 NEW: Initialized formatPrice hook
+    const { convertPrice } = useGlobalCurrency(); // 🔥 Asli function use kiya
     const [activeTab, setActiveTab] = useState('profile');
 
     // Profile States
@@ -46,7 +46,7 @@ export default function AccountPage({ user }: AccountPageProps) {
         id: '', name: '', street: '', city: '', state: '', zip: '', country: '', phone: ''
     });
 
-    // 🔥 NEW: Password Change States
+    // Password Change States
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [passwordForm, setPasswordForm] = useState({
@@ -115,7 +115,7 @@ export default function AccountPage({ user }: AccountPageProps) {
         toast.success('Address deleted');
     };
 
-    // 🔥 NEW: Password Handlers
+    // Password Handlers
     const handleOpenPasswordModal = () => {
         if (user.role === 'admin') {
             toast.error('Access Denied: Admin passwords cannot be modified here.', {
@@ -130,7 +130,6 @@ export default function AccountPage({ user }: AccountPageProps) {
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Double check admin logic block
         if (user.role === 'admin') {
             toast.error('Admin Access Denied!');
             setIsPasswordModalOpen(false);
@@ -144,7 +143,6 @@ export default function AccountPage({ user }: AccountPageProps) {
 
         setIsChangingPassword(true);
         try {
-            // NOTE: Make sure you have this backend API route created
             const res = await fetch('/api/user/change-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -203,7 +201,6 @@ export default function AccountPage({ user }: AccountPageProps) {
         }
     };
 
-    // Framer Motion Variants for smooth Tab Switching
     const tabVariants = {
         hidden: { opacity: 0, y: 15 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
@@ -222,7 +219,6 @@ export default function AccountPage({ user }: AccountPageProps) {
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-                    {/* Header with Gradient */}
                     <div className="mb-8">
                         <motion.div
                             initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
@@ -242,7 +238,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                         </motion.div>
                     </div>
 
-                    {/* Stats Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         {stats.map((stat, index) => {
                             const Icon = stat.icon;
@@ -263,9 +258,7 @@ export default function AccountPage({ user }: AccountPageProps) {
                         })}
                     </div>
 
-                    {/* Main Content Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        {/* Sidebar Navigation */}
                         <div className="lg:col-span-1">
                             <div className="bg-white rounded-3xl shadow-xl p-5 sticky top-8">
                                 <div className="space-y-2">
@@ -314,12 +307,10 @@ export default function AccountPage({ user }: AccountPageProps) {
                             </div>
                         </div>
 
-                        {/* Content Area with AnimatePresence */}
                         <div className="lg:col-span-3">
                             <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 min-h-[500px]">
                                 <AnimatePresence mode="wait">
 
-                                    {/* Profile Tab */}
                                     {activeTab === 'profile' && (
                                         <motion.div key="profile" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
                                             <div className="flex items-center justify-between mb-8">
@@ -338,7 +329,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                {/* Name Field */}
                                                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                                     <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Full Name</label>
                                                     {isEditing ? (
@@ -353,7 +343,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                     )}
                                                 </div>
 
-                                                {/* Email Field */}
                                                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                                     <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Email Address</label>
                                                     {isEditing ? (
@@ -368,7 +357,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                     )}
                                                 </div>
 
-                                                {/* Account Type */}
                                                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                                     <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Account Type</label>
                                                     <div className="flex items-center">
@@ -379,7 +367,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                     </div>
                                                 </div>
 
-                                                {/* Member Since */}
                                                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                                     <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Member Since</label>
                                                     <div className="text-xl font-bold text-gray-900">
@@ -409,7 +396,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                         </motion.div>
                                     )}
 
-                                    {/* Orders Tab */}
                                     {activeTab === 'orders' && (
                                         <motion.div key="orders" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
                                             <div className="flex items-center justify-between mb-8">
@@ -449,8 +435,8 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                                     </p>
                                                                 </div>
                                                                 <div className="text-right">
-                                                                    {/* 🔥 FIX: Used formatPrice globally here */}
-                                                                    <p className="font-black text-gray-900 text-xl">{formatPrice(order.total)}</p>
+                                                                    {/* 🔥 Convert function in Action */}
+                                                                    <p className="font-black text-gray-900 text-xl">{convertPrice(order.total)}</p>
                                                                     <span className={`text-xs px-3 py-1 rounded-full font-black tracking-wider inline-block mt-2 ${getStatusColor(order.status)}`}>
                                                                         {order.status}
                                                                     </span>
@@ -466,7 +452,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                         </motion.div>
                                     )}
 
-                                    {/* Wishlist Tab */}
                                     {activeTab === 'wishlist' && (
                                         <motion.div key="wishlist" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
                                             <div className="flex items-center justify-between mb-8">
@@ -495,8 +480,8 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                             <img src={item.product?.image || ''} alt="Product" className="w-20 h-20 object-cover rounded-xl bg-gray-50 mix-blend-multiply" />
                                                             <div className="flex-1">
                                                                 <h4 className="font-bold text-gray-900 line-clamp-1 tracking-tight">{item.product?.name}</h4>
-                                                                {/* 🔥 FIX: Used formatPrice globally here */}
-                                                                <p className="text-lg font-black text-gray-900 mt-1">{formatPrice(item.product?.price || 0)}</p>
+                                                                {/* 🔥 Convert function in Action */}
+                                                                <p className="text-lg font-black text-gray-900 mt-1">{convertPrice(item.product?.price || 0)}</p>
                                                                 <Link href={`/products/${item.product?.slug || ''}`}>
                                                                     <button className="text-xs font-black tracking-widest uppercase text-blue-600 hover:text-blue-700 mt-2">
                                                                         View Product →
@@ -510,7 +495,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                         </motion.div>
                                     )}
 
-                                    {/* Addresses Tab */}
                                     {activeTab === 'addresses' && (
                                         <motion.div key="addresses" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
                                             <div className="flex items-center justify-between mb-8">
@@ -550,13 +534,11 @@ export default function AccountPage({ user }: AccountPageProps) {
                                         </motion.div>
                                     )}
 
-                                    {/* Settings Tab - 🔥 UPDATED FOR PASSWORD */}
                                     {activeTab === 'settings' && (
                                         <motion.div key="settings" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
                                             <h2 className="text-3xl font-black text-gray-900 mb-8 tracking-tight">Account Settings</h2>
 
                                             <div className="space-y-6">
-                                                {/* 🔥 Functional Password Section */}
                                                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                                     <div className="flex items-center gap-3 mb-3">
                                                         <FiLock className="text-2xl text-gray-900" />
@@ -573,7 +555,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                     </button>
                                                 </div>
 
-                                                {/* Notifications Section */}
                                                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                                     <label className="block text-xl font-black text-gray-900 mb-6">
                                                         Notifications
@@ -595,7 +576,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                     </div>
                                                 </div>
 
-                                                {/* Danger Zone */}
                                                 <div className="bg-red-50 p-6 rounded-2xl border-2 border-red-100">
                                                     <label className="block text-xl font-black text-red-600 mb-3">
                                                         ⚠️ Danger Zone
@@ -615,7 +595,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                 </div>
             </div>
 
-            {/* Address Modal */}
             <AnimatePresence>
                 {isAddressModalOpen && (
                     <motion.div
@@ -679,7 +658,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                 )}
             </AnimatePresence>
 
-            {/* 🔥 NEW: Password Modal */}
             <AnimatePresence>
                 {isPasswordModalOpen && (
                     <motion.div
