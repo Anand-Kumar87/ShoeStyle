@@ -15,6 +15,7 @@ import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { useOrders } from '@/hooks/useOrders';
 import { useWishlist } from '@/hooks/useWishlist';
+import { useCurrency } from '@/context/CurrencyContext'; // 🔥 NEW: Imported Currency Context
 
 interface AccountPageProps {
     user: {
@@ -27,6 +28,7 @@ interface AccountPageProps {
 
 export default function AccountPage({ user }: AccountPageProps) {
     const router = useRouter();
+    const { formatPrice } = useCurrency(); // 🔥 NEW: Initialized formatPrice hook
     const [activeTab, setActiveTab] = useState('profile');
 
     // Profile States
@@ -410,7 +412,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                     {/* Orders Tab */}
                                     {activeTab === 'orders' && (
                                         <motion.div key="orders" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
-                                            {/* Purana Orders logic with updated styling */}
                                             <div className="flex items-center justify-between mb-8">
                                                 <div>
                                                     <h2 className="text-3xl font-black text-gray-900 tracking-tight">Order History</h2>
@@ -448,7 +449,8 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                                     </p>
                                                                 </div>
                                                                 <div className="text-right">
-                                                                    <p className="font-black text-gray-900 text-xl">${order.total.toFixed(2)}</p>
+                                                                    {/* 🔥 FIX: Used formatPrice globally here */}
+                                                                    <p className="font-black text-gray-900 text-xl">{formatPrice(order.total)}</p>
                                                                     <span className={`text-xs px-3 py-1 rounded-full font-black tracking-wider inline-block mt-2 ${getStatusColor(order.status)}`}>
                                                                         {order.status}
                                                                     </span>
@@ -467,7 +469,6 @@ export default function AccountPage({ user }: AccountPageProps) {
                                     {/* Wishlist Tab */}
                                     {activeTab === 'wishlist' && (
                                         <motion.div key="wishlist" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
-                                            {/* Wishlist Logic mapped properly */}
                                             <div className="flex items-center justify-between mb-8">
                                                 <div>
                                                     <h2 className="text-3xl font-black text-gray-900 tracking-tight">My Wishlist</h2>
@@ -494,7 +495,8 @@ export default function AccountPage({ user }: AccountPageProps) {
                                                             <img src={item.product?.image || ''} alt="Product" className="w-20 h-20 object-cover rounded-xl bg-gray-50 mix-blend-multiply" />
                                                             <div className="flex-1">
                                                                 <h4 className="font-bold text-gray-900 line-clamp-1 tracking-tight">{item.product?.name}</h4>
-                                                                <p className="text-lg font-black text-gray-900 mt-1">${item.product?.price}</p>
+                                                                {/* 🔥 FIX: Used formatPrice globally here */}
+                                                                <p className="text-lg font-black text-gray-900 mt-1">{formatPrice(item.product?.price || 0)}</p>
                                                                 <Link href={`/products/${item.product?.slug || ''}`}>
                                                                     <button className="text-xs font-black tracking-widest uppercase text-blue-600 hover:text-blue-700 mt-2">
                                                                         View Product →
