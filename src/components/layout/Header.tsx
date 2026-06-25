@@ -9,6 +9,7 @@ import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import { Search, Heart, ShoppingBag, User, Menu, X, ChevronDown, Tag } from 'lucide-react';
 import CartDrawer from '@/components/cart/CartDrawer';
+import CurrencySwitcher from '@/components/common/CurrencySwitcher';
 import { useSession, signOut } from 'next-auth/react';
 
 // 🔥 1. Import Global Currency Hook
@@ -106,6 +107,9 @@ const Header: React.FC = () => {
 
   return (
     <>
+      {/* 🔥 PREMIUM: Floating Currency Switcher */}
+      <CurrencySwitcher />
+
       <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm' : 'bg-white'}`}>
 
         {/* 🔥 PREMIUM DYNAMIC BANNER */}
