@@ -9,7 +9,7 @@ import CheckoutForm from '@/components/checkout/CheckoutForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import { useCart } from '@/hooks/useCart';
 import { useGlobalCurrency } from '@/context/CurrencyContext';
-import toast, { Toaster } from 'react-hot-toast'; // 🔥 Premium Notifications
+import toast, { Toaster } from 'react-hot-toast';
 
 export interface ShippingAddress {
   firstName?: string;
@@ -33,7 +33,10 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🔥 COUPON STATES
+  // 🔥 FIX 1: Redirect rokne ke liye naya flag
+  const [isOrderSuccess, setIsOrderSuccess] = useState(false);
+
+  // COUPON STATES
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [discount, setDiscount] = useState(0);
@@ -42,25 +45,21 @@ export default function CheckoutPage() {
   const { taxRate, freeShippingThreshold, convertPrice, loading: currencyLoading } = useGlobalCurrency();
 
   useEffect(() => {
-    if (items.length === 0 && router.isReady) {
+    // 🔥 FIX 1.1: Agar order success ho gaya hai, toh cart mein redirect mat karo
+    if (items.length === 0 && router.isReady && !isOrderSuccess) {
       router.push('/cart');
     } else {
       setIsLoading(false);
     }
-  }, [items, router]);
+  }, [items, router, isOrderSuccess]);
 
   const subtotal = getSubtotal();
-
-  // 🔥 FIX 1: Free Shipping Coupon Check Add Kiya
   const isFreeShipping = appliedCoupon?.type === 'FREE_SHIPPING';
   const shipping = isFreeShipping || subtotal >= freeShippingThreshold ? 0 : 10;
-
   const tax = subtotal * (taxRate / 100);
-
-  // 🔥 Total mein se discount minus kar diya gaya hai
   const total = Math.max(0, subtotal + shipping + tax - discount);
 
-  // 🔥 COUPON HANDLERS
+  // COUPON HANDLERS
   const handleApplyCoupon = async () => {
     setCouponError('');
     if (!couponInput.trim()) {
@@ -81,10 +80,7 @@ export default function CheckoutPage() {
 
       if (res.ok && data.coupon) {
         setAppliedCoupon(data.coupon);
-
-        // 🔥 FIX 2: Frontend math hata kar direct backend ka exact amount use kiya
         setDiscount(data.coupon.discountAmount || 0);
-
         toast.success(`Coupon ${data.coupon.code} applied! 🎉`, { id: loadToast });
       } else {
         setCouponError(data.message || 'Invalid or expired Coupon Code');
@@ -121,7 +117,6 @@ export default function CheckoutPage() {
         country: shippingData.country || 'Not Specified',
       };
 
-      // Create Order API Call
       const orderResponse = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,14 +138,15 @@ export default function CheckoutPage() {
       const order = await orderResponse.json();
       const orderId = order.id || order._id;
 
+      // 🔥 FIX 1.2: Pehle success flag ON karo, phir cart clear karo
+      setIsOrderSuccess(true);
       clearCart();
       router.push(`/checkout/payment?orderId=${orderId}`);
 
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Failed to process order. Please try again.');
-    } finally {
-      setIsProcessing(false);
+      setIsProcessing(false); // Sirf fail hone par wapas button enable karo
     }
   };
 
@@ -179,8 +175,6 @@ export default function CheckoutPage() {
           </div>
 
           <div className="grid gap-8 lg:grid-cols-3 xl:gap-12">
-
-            {/* Form Section */}
             <div className="lg:col-span-2">
               <div className="rounded-3xl bg-white p-6 md:p-10 shadow-sm border border-slate-100">
                 <h2 className="text-xl font-black uppercase tracking-widest text-slate-900 mb-8 border-b border-slate-100 pb-4">Contact & Delivery</h2>
@@ -188,11 +182,8 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Sticky Right Section */}
             <div className="lg:col-span-1">
               <div className="sticky top-28 space-y-6">
-
-                {/* THE COUPON CARD */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                   <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
                     🏷️ Have a Coupon?
@@ -245,7 +236,6 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* ORDER SUMMARY */}
                 <OrderSummary
                   items={items}
                   subtotal={subtotal}
@@ -253,7 +243,6 @@ export default function CheckoutPage() {
                   tax={tax}
                   total={total}
                 />
-
               </div>
             </div>
           </div>
