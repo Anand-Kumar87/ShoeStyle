@@ -7,6 +7,7 @@ interface GlobalSettingsContextType {
     freeShippingThreshold: number;
     exchangeRate: number; // 🔥 ZAROORI: Stripe aur Razorpay ki calculation ke liye
     convertPrice: (baseUsdPrice: number) => string;
+    changeCurrency: (newCurrency: string) => void; // 🔥 NAYA FIX: Currency change function
     loading: boolean;
 }
 
@@ -21,6 +22,26 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
     const symbols: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$' };
 
+    // 🔥 NAYA FIX: Customer ki marzi se currency change karne aur save karne ka logic
+    const changeCurrency = async (newCurrency: string) => {
+        setLoading(true);
+        setCurrency(newCurrency);
+        localStorage.setItem('userCurrency', newCurrency); // Customer ki choice save kar li
+
+        if (newCurrency !== 'USD') {
+            try {
+                const apiRes = await fetch('https://open.er-api.com/v6/latest/USD');
+                const apiData = await apiRes.json();
+                setRate(apiData.rates[newCurrency] || 1);
+            } catch (error) {
+                console.error("Failed to fetch new rate", error);
+            }
+        } else {
+            setRate(1);
+        }
+        setLoading(false);
+    };
+
     useEffect(() => {
         async function initGlobalSettings() {
             try {
@@ -28,12 +49,15 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
                 const dbRes = await fetch('/api/admin/settings');
                 const dbData = await dbRes.json();
 
-                const targetCurrency = dbData.defaultCurrency || 'USD';
-                setCurrency(targetCurrency);
                 setTaxRate(dbData.taxRate || 0);
                 setFreeShippingThreshold(dbData.freeShippingAmount || 100);
 
-                // 2. Fetch live exchange rate
+                // 2. 🔥 NAYA FIX: Pehle check karo agar user ne khud koi currency select ki hai (Local Storage)
+                const savedCurrency = localStorage.getItem('userCurrency');
+                const targetCurrency = savedCurrency || dbData.defaultCurrency || 'USD';
+                setCurrency(targetCurrency);
+
+                // 3. Fetch live exchange rate
                 if (targetCurrency !== 'USD') {
                     const apiRes = await fetch('https://open.er-api.com/v6/latest/USD');
                     const apiData = await apiRes.json();
@@ -70,6 +94,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             freeShippingThreshold,
             exchangeRate: rate, // 🔥 Backend payment calculation ke liye export kiya
             convertPrice,
+            changeCurrency, // 🔥 NAYA FIX: Export kiya taaki button ise use kar sake
             loading
         }}>
             {children}
