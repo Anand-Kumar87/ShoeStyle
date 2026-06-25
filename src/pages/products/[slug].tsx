@@ -7,7 +7,7 @@ import { ChevronDown, Heart, ShoppingBag, Star, MessageSquare, User, X } from 'l
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductGrid from '@/components/product/ProductGrid';
-import ColorSwatch from '@/components/product/ColorSwatch'; // 👈 NAYA FIX: ColorSwatch Import
+import ColorSwatch from '@/components/product/ColorSwatch'; 
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useSession } from 'next-auth/react';
@@ -16,7 +16,6 @@ import { prisma } from '@/lib/prisma';
 import toast from 'react-hot-toast';
 import { useGlobalCurrency } from '@/context/CurrencyContext';
 
-// Helper Accordion Component
 function Accordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode, defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -51,15 +50,14 @@ export default function ProductDetailPage({ product, related }: any) {
 
   const [activeImage, setActiveImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
-  // 👈 NAYA FIX: Colors handle karne ka logic
+  
   const availableColors = product.colors && product.colors.length > 0 ? product.colors : [];
   const [selectedColor, setSelectedColor] = useState(availableColors[0] || '');
 
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
-  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false); // 👈 NAYA FIX: Size Guide Modal State
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false); 
 
-  // Real Review States
   const [reviews, setReviews] = useState(product.reviews || []);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
@@ -68,11 +66,18 @@ export default function ProductDetailPage({ product, related }: any) {
   const images = [product.image, ...(product.images || [])].filter(Boolean) as string[];
   const inWishlist = isInWishlist(product.id);
   const outOfStock = product.stock === 0;
-  const discount = product.compareAtPrice
-    ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
+
+  // 🔥 SALE PRICE LOGIC FIX 
+  // Agar sale price available aur 0 se zyada hai, toh use karenge. Warna original price.
+  const displayPrice = (product.salePrice && product.salePrice > 0) ? product.salePrice : product.price;
+  
+  // Naya Compare Price Logic (Agar compareAtPrice nahi hai, par original price hai aur sale lag rahi hai)
+  const comparePrice = product.compareAtPrice || (product.salePrice ? product.price : null);
+
+  const discount = comparePrice
+    ? Math.round(((comparePrice - displayPrice) / comparePrice) * 100)
     : 0;
 
-  // Sizes array empty string filter
   const validSizes = (product.sizes || []).filter((s: string) => s && s.trim() !== '');
 
   const handleAddToCart = async () => {
@@ -84,11 +89,11 @@ export default function ProductDetailPage({ product, related }: any) {
     addItem({
       productId: product.id,
       name: product.name,
-      price: product.price,
+      price: displayPrice, // 🔥 AB CART MEIN BHI DISCOUNTED RATE JAYEGA
       image: product.image,
       quantity: qty,
       size: selectedSize,
-      color: selectedColor, // Cart me color jayega
+      color: selectedColor, 
       slug: product.slug,
       stock: product.stock
     });
@@ -230,17 +235,17 @@ export default function ProductDetailPage({ product, related }: any) {
               </div>
 
               <div className="flex items-end gap-4 mb-8 pb-8 border-b border-slate-100">
-                <span className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">
-                  {currencyLoading ? '...' : convertPrice(product.price)}
+                <span className={`text-4xl sm:text-5xl font-black tracking-tight ${discount > 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                  {currencyLoading ? '...' : convertPrice(displayPrice)}
                 </span>
-                {product.compareAtPrice && (
+                {comparePrice && discount > 0 && (
                   <span className="text-xl text-slate-400 line-through font-bold mb-1">
-                    {currencyLoading ? '...' : convertPrice(product.compareAtPrice)}
+                    {currencyLoading ? '...' : convertPrice(comparePrice)}
                   </span>
                 )}
               </div>
 
-              {/* 👈 NAYA FIX: COLOR SWATCH UI */}
+              {/* COLOR SWATCH UI */}
               {availableColors.length > 0 && (
                 <div className="mb-8">
                   <label className="mb-3 block text-sm font-black uppercase tracking-widest text-slate-900">
@@ -255,7 +260,6 @@ export default function ProductDetailPage({ product, related }: any) {
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-black uppercase tracking-widest text-slate-900">Select Size</span>
-                    {/* 👈 NAYA FIX: SIZE GUIDE BUTTON */}
                     <button
                       type="button"
                       onClick={() => setIsSizeGuideOpen(true)}
@@ -408,7 +412,6 @@ export default function ProductDetailPage({ product, related }: any) {
 
       <Footer />
 
-      {/* 👈 NAYA FIX: PURE CSS MODAL HOVERING OVER EVERYTHING */}
       {isSizeGuideOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4">
           <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl z-[10000]">
