@@ -26,7 +26,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         try {
-            const { storeName, contactEmail, defaultCurrency, taxRate, freeShippingAmount } = req.body;
+            // 🔥 NAYE FIELDS EXTRACT KIYE: shippingIndia, shippingTier1, shippingRow
+            const { storeName, contactEmail, defaultCurrency, taxRate, freeShippingAmount, shippingIndia, shippingTier1, shippingRow } = req.body;
 
             const existingSettings = await prisma.storeSettings.findFirst();
 
@@ -36,8 +37,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     storeName,
                     contactEmail,
                     defaultCurrency,
-                    taxRate: parseFloat(taxRate),
-                    freeShippingAmount: parseFloat(freeShippingAmount),
+                    taxRate: parseFloat(taxRate) || 0,
+                    freeShippingAmount: parseFloat(freeShippingAmount) || 0,
+                    // 🔥 NAYA FIX: Database mein dynamic shipping amounts save ho rahe hain
+                    shippingIndia: parseFloat(shippingIndia) || 15,
+                    shippingTier1: parseFloat(shippingTier1) || 50,
+                    shippingRow: parseFloat(shippingRow) || 80,
                 }
             });
 
