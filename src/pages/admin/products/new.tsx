@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Save, ArrowLeft, Image as ImageIcon, Tag, Hash, Layers, UploadCloud, X, Link2, Plus } from 'lucide-react'; // 🔥 Added 'Plus' icon
+import { Save, ArrowLeft, Image as ImageIcon, Tag, Hash, Layers, UploadCloud, X, Link2, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,7 +12,7 @@ export default function CreateProduct() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
-    // 🔥 MEDIA UPLOAD STATES
+    // MEDIA UPLOAD STATES
     const [uploadMethod, setUploadMethod] = useState<'upload' | 'url'>('upload');
     const [dragActive, setDragActive] = useState(false);
 
@@ -20,16 +20,16 @@ export default function CreateProduct() {
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 🔥 NEW: Gallery Images State (Multiple Images)
+    // Gallery Images State (Multiple Images)
     const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
     const galleryInputRef = useRef<HTMLInputElement>(null);
 
-    // Advanced Form State
+    // Advanced Form State (Admin types INR here)
     const [formData, setFormData] = useState({
         name: '', slug: '', description: '',
-        price: '', compareAtPrice: '', salePrice: '', stock: '', sku: '',
+        price: '', compareAtPrice: '', salePrice: '', stock: '', sku: '', // Here price refers to INR value typed by Admin
         category: 'sneakers', brand: '',
-        image: '', images: '', // For URL method
+        image: '', images: '', 
         sizes: '', colors: '',
         isActive: true, isFeatured: false, isNew: true, isSale: false
     });
@@ -98,9 +98,8 @@ export default function CreateProduct() {
         setGalleryPreviews(prev => prev.filter((_, idx) => idx !== indexToRemove));
     };
 
-
     // ==========================================
-    // 💾 SUBMIT LOGIC
+    // 💾 SUBMIT LOGIC (With Smart INR to USD Conversion)
     // ==========================================
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -119,12 +118,31 @@ export default function CreateProduct() {
                 return;
             }
 
-            // 🔥 Smart Payload Handling
+            const t = toast.loading('Converting currency & saving product...');
+
+            // 🔥 SMART FIX: Fetch live rate to convert Admin's INR back to Base USD for Database
+            let inrToUsdRate = 1 / 83.5; // Default safe fallback (1 INR = ~0.012 USD)
+            try {
+                const rateRes = await fetch('https://open.er-api.com/v6/latest/INR');
+                const rateData = await rateRes.json();
+                if (rateData?.rates?.USD) {
+                    inrToUsdRate = rateData.rates.USD;
+                }
+            } catch (err) {
+                console.log("Could not fetch live rate for save, using fallback.");
+            }
+
+            // Convert INR inputs to USD floats
+            const baseUsdPrice = (parseFloat(formData.price) || 0) * inrToUsdRate;
+            const baseUsdComparePrice = formData.compareAtPrice ? (parseFloat(formData.compareAtPrice) * inrToUsdRate) : null;
+            const baseUsdSalePrice = formData.isSale && formData.salePrice ? (parseFloat(formData.salePrice) * inrToUsdRate) : null;
+
+            // Smart Payload Handling
             const payload = {
                 ...formData,
-                price: parseFloat(formData.price) || 0,
-                compareAtPrice: formData.compareAtPrice ? parseFloat(formData.compareAtPrice) : null,
-                salePrice: formData.isSale && formData.salePrice ? parseFloat(formData.salePrice) : null,
+                price: baseUsdPrice, // Now securely sending USD to backend!
+                compareAtPrice: baseUsdComparePrice,
+                salePrice: baseUsdSalePrice,
                 stock: parseInt(formData.stock) || 0,
 
                 // Switch between Base64 arrays or comma-separated URLs automatically
@@ -142,11 +160,11 @@ export default function CreateProduct() {
             });
 
             if (res.ok) {
-                toast.success('Product created successfully!');
+                toast.success('Product created successfully!', { id: t });
                 router.push('/admin/products');
             } else {
                 const error = await res.json();
-                toast.error(error.message || 'Failed to create product');
+                toast.error(error.message || 'Failed to create product', { id: t });
             }
         } catch (error) {
             toast.error('Something went wrong!');
@@ -266,7 +284,6 @@ export default function CreateProduct() {
                                                     className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-blue-400 transition-all text-slate-400 hover:text-blue-500"
                                                     onClick={() => galleryInputRef.current?.click()}
                                                 >
-                                                    {/* Notice "multiple" attribute is added here */}
                                                     <input ref={galleryInputRef} type="file" multiple accept="image/*" onChange={(e) => e.target.files && processGalleryFiles(e.target.files)} className="hidden" />
                                                     <Plus size={28} />
                                                     <span className="text-[10px] font-bold uppercase mt-2">Add More</span>
@@ -313,22 +330,26 @@ export default function CreateProduct() {
                     <div className="space-y-8">
                         {/* Pricing */}
                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                            <h2 className="text-md font-black text-slate-900 mb-5">Pricing</h2>
+                            <h2 className="text-md font-black text-slate-900 mb-5">Pricing (Enter in ₹)</h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Original Price ($) <span className="text-red-500">*</span></label>
-                                    <input type="number" step="0.01" name="price" value={formData.price} onChange={handleChange} required className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-black text-lg focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none transition-all" />
+                                    {/* 🔥 FIX: Changed Label to INR ₹ */}
+                                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Original Price (₹) <span className="text-red-500">*</span></label>
+                                    <input type="number" step="0.01" name="price" value={formData.price} onChange={handleChange} required className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-black text-lg focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none transition-all" placeholder="₹" />
                                 </div>
                                 {formData.isSale && (
                                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="pt-2">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-emerald-600 mb-2">Sale Price ($) <span className="text-red-500">*</span></label>
-                                        <input type="number" step="0.01" name="salePrice" value={formData.salePrice} onChange={handleChange} required className="w-full bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl font-black text-lg text-emerald-700 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Discounted Price" />
+                                        {/* 🔥 FIX: Changed Label to INR ₹ */}
+                                        <label className="block text-xs font-black uppercase tracking-widest text-emerald-600 mb-2">Sale Price (₹) <span className="text-red-500">*</span></label>
+                                        <input type="number" step="0.01" name="salePrice" value={formData.salePrice} onChange={handleChange} required className="w-full bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl font-black text-lg text-emerald-700 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Discounted Price in ₹" />
                                     </motion.div>
                                 )}
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Compare at Price ($)</label>
-                                    <input type="number" step="0.01" name="compareAtPrice" value={formData.compareAtPrice} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-medium text-slate-400 focus:ring-2 focus:ring-blue-600 outline-none" placeholder="Higher marked price" />
+                                    {/* 🔥 FIX: Changed Label to INR ₹ */}
+                                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Compare at Price (₹)</label>
+                                    <input type="number" step="0.01" name="compareAtPrice" value={formData.compareAtPrice} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-medium text-slate-400 focus:ring-2 focus:ring-blue-600 outline-none" placeholder="Higher marked price in ₹" />
                                 </div>
+                                <p className="text-[10px] font-bold text-slate-400 mt-2">Prices will auto-convert to USD for the global database.</p>
                             </div>
                         </div>
 
