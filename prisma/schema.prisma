@@ -593,6 +593,9 @@ model StoreSettings {
   defaultCurrency    String   @default("USD")
   taxRate            Float    @default(10.0)
   freeShippingAmount Float    @default(100.0)
+  shippingIndia        Float    @default(15)
+  shippingTier1        Float    @default(50)
+  shippingRow          Float    @default(80)
   updatedAt          DateTime @updatedAt
 
   @@map("store_settings")
