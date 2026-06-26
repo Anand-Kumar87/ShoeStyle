@@ -16,13 +16,15 @@ interface Props {
 }
 
 export default function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem }: Props) {
-  // 👈 Hook se freeShippingThreshold fetch kiya
-  const { convertPrice, loading: currencyLoading, freeShippingThreshold } = useGlobalCurrency();
+  // 🔥 FIX: `shippingIndia` ko bhi extract kar liya
+  const { convertPrice, loading: currencyLoading, freeShippingThreshold, shippingIndia } = useGlobalCurrency();
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  // 👈 Hardcoded ki jagah Admin Settings wala threshold use kiya
-  const shipping = subtotal >= freeShippingThreshold ? 0 : 10; // Assuming base shipping cost is $10 USD
+  // 🔥 FIX: Hardcoded 10 ko hatakar Admin ka `shippingIndia` default laga diya
+  const defaultShippingRate = shippingIndia || 15;
+  const shipping = subtotal >= freeShippingThreshold ? 0 : defaultShippingRate;
+
   const total = subtotal + shipping;
   const progress = Math.min((subtotal / freeShippingThreshold) * 100, 100);
   const remaining = freeShippingThreshold - subtotal;
@@ -145,8 +147,9 @@ export default function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, o
                     <span>Subtotal</span>
                     <span>{currencyLoading ? '...' : convertPrice(subtotal)}</span>
                   </div>
+                  {/* 🔥 FIX: Estimated Shipping dikhaya taaki user ko pata rahe checkout par change ho sakta hai */}
                   <div className="flex justify-between text-neutral-500">
-                    <span>Shipping</span>
+                    <span>Estimated Shipping</span>
                     <span className={shipping === 0 ? 'text-green-600 font-semibold' : ''}>
                       {shipping === 0 ? 'FREE' : (currencyLoading ? '...' : convertPrice(shipping))}
                     </span>
