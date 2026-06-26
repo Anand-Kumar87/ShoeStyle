@@ -5,10 +5,14 @@ interface GlobalSettingsContextType {
     symbol: string;
     taxRate: number;
     freeShippingThreshold: number;
-    exchangeRate: number; // 🔥 ZAROORI: Stripe aur Razorpay ki calculation ke liye
+    exchangeRate: number;
     convertPrice: (baseUsdPrice: number) => string;
-    changeCurrency: (newCurrency: string) => void; // 🔥 NAYA FIX: Currency change function
+    changeCurrency: (newCurrency: string) => void;
     loading: boolean;
+    // 🔥 NAYE SHIPPING VARIABLES
+    shippingIndia: number;
+    shippingTier1: number;
+    shippingRow: number;
 }
 
 const CurrencyContext = createContext<GlobalSettingsContextType | undefined>(undefined);
@@ -20,13 +24,17 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const [freeShippingThreshold, setFreeShippingThreshold] = useState(100);
     const [loading, setLoading] = useState(true);
 
+    // 🔥 NAYE SHIPPING STATES (Default values in USD)
+    const [shippingIndia, setShippingIndia] = useState(15);
+    const [shippingTier1, setShippingTier1] = useState(50);
+    const [shippingRow, setShippingRow] = useState(80);
+
     const symbols: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$' };
 
-    // 🔥 NAYA FIX: Customer ki marzi se currency change karne aur save karne ka logic
     const changeCurrency = async (newCurrency: string) => {
         setLoading(true);
         setCurrency(newCurrency);
-        localStorage.setItem('userCurrency', newCurrency); // Customer ki choice save kar li
+        localStorage.setItem('userCurrency', newCurrency);
 
         if (newCurrency !== 'USD') {
             try {
@@ -52,7 +60,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
                 setTaxRate(dbData.taxRate || 0);
                 setFreeShippingThreshold(dbData.freeShippingAmount || 100);
 
-                // 2. 🔥 NAYA FIX: Pehle check karo agar user ne khud koi currency select ki hai (Local Storage)
+                // 🔥 ADMIN SE SHIPPING RATES UTHAO (Agar DB mein na ho toh default value do)
+                setShippingIndia(dbData.shippingIndia || 15);
+                setShippingTier1(dbData.shippingTier1 || 50);
+                setShippingRow(dbData.shippingRow || 80);
+
+                // 2. Check karo agar user ne khud koi currency select ki hai
                 const savedCurrency = localStorage.getItem('userCurrency');
                 const targetCurrency = savedCurrency || dbData.defaultCurrency || 'USD';
                 setCurrency(targetCurrency);
@@ -74,15 +87,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
     const convertPrice = (baseUsdPrice: number) => {
         if (baseUsdPrice === undefined || baseUsdPrice === null) return '';
-
         const converted = baseUsdPrice * rate;
-
-        // 🔥 PREMIUM UI FIX: Decimals (points) hataye aur commas lagaye
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: currency,
-            minimumFractionDigits: 0, // Zero decimals
-            maximumFractionDigits: 0  // Zero decimals
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         }).format(converted);
     };
 
@@ -92,10 +102,14 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             symbol: symbols[currency] || '$',
             taxRate,
             freeShippingThreshold,
-            exchangeRate: rate, // 🔥 Backend payment calculation ke liye export kiya
+            exchangeRate: rate,
             convertPrice,
-            changeCurrency, // 🔥 NAYA FIX: Export kiya taaki button ise use kar sake
-            loading
+            changeCurrency,
+            loading,
+            // 🔥 VALUES PROVIDE KARO
+            shippingIndia,
+            shippingTier1,
+            shippingRow
         }}>
             {children}
         </CurrencyContext.Provider>
