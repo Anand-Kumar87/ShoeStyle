@@ -6,15 +6,28 @@ import toast from 'react-hot-toast';
 import AdminLayout from '@/components/layout/AdminLayout';
 
 export default function AdminSettings() {
-    // ---------------------------------------------------------
-    // 1. STATE MANAGEMENT
-    // ---------------------------------------------------------
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [inrRate, setInrRate] = useState(83.5); // Fallback rate
 
-    // Store Settings State
+    // Store Settings State (Main USD state for Database)
     const [form, setForm] = useState({
-        storeName: '', contactEmail: '', defaultCurrency: 'USD', taxRate: '', freeShippingAmount: ''
+        storeName: '',
+        contactEmail: '',
+        defaultCurrency: 'USD',
+        taxRate: '',
+        freeShippingAmount: 0,
+        shippingIndia: 15,
+        shippingTier1: 50,
+        shippingRow: 80
+    });
+
+    // 🔥 NAYA FIX: Admin Input State (Yahan tum INR mein type karoge)
+    const [inrForm, setInrForm] = useState({
+        freeShippingAmount: '',
+        shippingIndia: '',
+        shippingTier1: '',
+        shippingRow: ''
     });
 
     // Bank Settings State
@@ -33,9 +46,6 @@ export default function AdminSettings() {
         { code: 'AUD', label: 'Australian Dollar (A$)', icon: '🇦🇺' },
     ];
 
-    // ---------------------------------------------------------
-    // 2. DATA FETCHING
-    // ---------------------------------------------------------
     const fetchBanks = async () => {
         try {
             const res = await fetch('/api/settings/bank');
@@ -46,29 +56,69 @@ export default function AdminSettings() {
     };
 
     useEffect(() => {
-        // Fetch Store Settings
-        fetch('/api/admin/settings').then(r => r.json()).then(data => {
-            if (data) {
-                setForm({
-                    storeName: data.storeName,
-                    contactEmail: data.contactEmail,
-                    defaultCurrency: data.defaultCurrency,
-                    taxRate: data.taxRate.toString(),
-                    freeShippingAmount: data.freeShippingAmount.toString()
-                });
-            }
-            setLoading(false);
-        });
+        const initData = async () => {
+            try {
+                // 1. Fetch live INR Rate first
+                let currentRate = 83.5;
+                try {
+                    const rateRes = await fetch('https://open.er-api.com/v6/latest/USD');
+                    const rateData = await rateRes.json();
+                    if (rateData?.rates?.INR) {
+                        currentRate = rateData.rates.INR;
+                        setInrRate(currentRate);
+                    }
+                } catch (e) {
+                    console.log("Failed to fetch rate, using default.");
+                }
 
-        // Fetch Bank Details
+                // 2. Fetch Store Settings
+                const res = await fetch('/api/admin/settings');
+                const data = await res.json();
+
+                if (data) {
+                    // DB State update (USD)
+                    setForm({
+                        storeName: data.storeName || '',
+                        contactEmail: data.contactEmail || '',
+                        defaultCurrency: data.defaultCurrency || 'USD',
+                        taxRate: data.taxRate?.toString() || '0',
+                        freeShippingAmount: data.freeShippingAmount || 100,
+                        shippingIndia: data.shippingIndia || 15,
+                        shippingTier1: data.shippingTier1 || 50,
+                        shippingRow: data.shippingRow || 80,
+                    });
+
+                    // 🔥 UI State update (Converted to INR automatically for Admin view)
+                    setInrForm({
+                        freeShippingAmount: Math.round((data.freeShippingAmount || 100) * currentRate).toString(),
+                        shippingIndia: Math.round((data.shippingIndia || 15) * currentRate).toString(),
+                        shippingTier1: Math.round((data.shippingTier1 || 50) * currentRate).toString(),
+                        shippingRow: Math.round((data.shippingRow || 80) * currentRate).toString(),
+                    });
+                }
+            } catch (error) {
+                console.error("Error loading settings");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initData();
         fetchBanks();
     }, []);
 
-    // ---------------------------------------------------------
-    // 3. EVENT HANDLERS
-    // ---------------------------------------------------------
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value });
+    };
+
+    // 🔥 NAYA FIX: Handle INR inputs and convert back to USD quietly
+    const handleInrChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const valueInr = e.target.value;
+        setInrForm({ ...inrForm, [e.target.name]: valueInr });
+
+        // Convert to USD and save in main form
+        const valueUsd = Number(valueInr) / inrRate;
+        setForm({ ...form, [e.target.name]: valueUsd });
     };
 
     const handleSaveSettings = async () => {
@@ -78,7 +128,7 @@ export default function AdminSettings() {
             const res = await fetch('/api/admin/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form)
+                body: JSON.stringify(form) // USD value ja raha hai database mein!
             });
             if (res.ok) {
                 toast.success('Settings updated successfully!', { id: t });
@@ -93,7 +143,7 @@ export default function AdminSettings() {
         }
     };
 
-    // Bank Account Handlers
+    // Bank Handlers
     const handleAddBank = async (e: React.FormEvent) => {
         e.preventDefault();
         setBankLoading(true);
@@ -142,8 +192,6 @@ export default function AdminSettings() {
                 <Head><title>Settings | Admin</title></Head>
 
                 <div className="max-w-6xl mx-auto space-y-8">
-
-                    {/* Header */}
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest text-blue-600 mb-1">Configuration</p>
@@ -229,7 +277,7 @@ export default function AdminSettings() {
                             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
                                 <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
                                     <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center"><Percent size={20} /></div>
-                                    <h2 className="text-lg font-black text-slate-900">Taxes & Shipping</h2>
+                                    <h2 className="text-lg font-black text-slate-900">Taxes & Shipping Rates (in INR ₹)</h2>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -240,20 +288,40 @@ export default function AdminSettings() {
                                             <input type="number" step="0.1" name="taxRate" value={form.taxRate} onChange={handleChange} className={inputCls} />
                                         </div>
                                     </div>
+                                    {/* 🔥 SABHI FIELDS AB INR (₹) MEIN DIKHENGI */}
                                     <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest mb-2 text-slate-500">Free Shipping Threshold</label>
+                                        <label className="block text-xs font-black uppercase tracking-widest mb-2 text-slate-500">Free Shipping Threshold (₹)</label>
                                         <div className="relative">
-                                            <Truck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                            <input type="number" step="0.1" name="freeShippingAmount" value={form.freeShippingAmount} onChange={handleChange} className={inputCls} />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black">₹</span>
+                                            <input type="number" name="freeShippingAmount" value={inrForm.freeShippingAmount} onChange={handleInrChange} className={inputCls} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest mb-2 text-slate-500">India Shipping Rate (₹)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black">₹</span>
+                                            <input type="number" name="shippingIndia" value={inrForm.shippingIndia} onChange={handleInrChange} className={inputCls} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest mb-2 text-slate-500">Premium Tier 1 Shipping (US, UK) (₹)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black">₹</span>
+                                            <input type="number" name="shippingTier1" value={inrForm.shippingTier1} onChange={handleInrChange} className={inputCls} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest mb-2 text-slate-500">Rest of the World Shipping (₹)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black">₹</span>
+                                            <input type="number" name="shippingRow" value={inrForm.shippingRow} onChange={handleInrChange} className={inputCls} />
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* 🔥 NEW: BANK MANAGEMENT SYSTEM */}
+                            {/* BANK MANAGEMENT */}
                             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 pt-4">
-
-                                {/* Add Bank Form */}
                                 <div className="lg:col-span-2">
                                     <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 sticky top-8">
                                         <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
@@ -285,10 +353,8 @@ export default function AdminSettings() {
                                     </div>
                                 </div>
 
-                                {/* Active Banks List */}
                                 <div className="lg:col-span-3 space-y-4">
                                     <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-4 pl-2">Active Accounts ({banks.length})</h2>
-
                                     {banks.length === 0 ? (
                                         <div className="bg-white p-10 rounded-3xl border border-slate-100 text-center shadow-sm">
                                             <CreditCard size={48} className="mx-auto text-slate-200 mb-4" />
@@ -330,7 +396,6 @@ export default function AdminSettings() {
                                         ))
                                     )}
                                 </div>
-
                             </div>
                         </div>
                     )}
