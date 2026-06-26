@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect } from 'react';
+import { useForm, useWatch } from 'react-hook-form'; // 🔥 useWatch add kiya real-time track karne ke liye
 import Input from '@/components/common/Input';
 import Button from '@/components/common/Button';
 import { ShippingAddress } from '@/types/order';
 import { validateEmail, validatePhone, validateZipCode } from '@/utils/validation';
 
-// 🔥 Global list of all countries
+// 🔥 Global list of all countries (Same to same)
 const COUNTRIES = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
   "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi",
@@ -38,14 +38,25 @@ const COUNTRIES = [
 interface CheckoutFormProps {
   onSubmit: (data: ShippingAddress) => void;
   isLoading?: boolean;
+  onCountryChange?: (country: string) => void; // 🔥 Naya prop add kiya shipping track karne ke liye
 }
 
-const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSubmit, isLoading }) => {
+const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSubmit, isLoading, onCountryChange }) => {
   const {
     register,
     handleSubmit,
+    control, // 🔥 Control add kiya useWatch ke liye
     formState: { errors },
   } = useForm<ShippingAddress>();
+
+  // 🔥 Real-time mein country track karne ka logic
+  const selectedCountry = useWatch({ control, name: 'country' });
+
+  useEffect(() => {
+    if (onCountryChange && selectedCountry !== undefined) {
+      onCountryChange(selectedCountry);
+    }
+  }, [selectedCountry, onCountryChange]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
