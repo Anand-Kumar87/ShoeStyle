@@ -9,7 +9,9 @@ export const validatePhone = (phone: string): boolean => {
 };
 
 export const validateZipCode = (zipCode: string): boolean => {
-  const zipRegex = /^\d{5}(-\d{4})?$/;
+  // 🔥 GLOBAL FIX: Allows 3 to 10 characters (Numbers, Letters, Spaces, Dashes)
+  // Works perfectly for India (110074), US (10001), UK (SW1A 1AA), Canada (M5V 2H1), etc.
+  const zipRegex = /^[a-zA-Z0-9\s\-]{3,10}$/;
   return zipRegex.test(zipCode);
 };
 
