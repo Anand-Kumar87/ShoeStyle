@@ -36,13 +36,25 @@ export default function CheckoutPage() {
   // 🔥 FIX 1: Redirect rokne ke liye naya flag
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
 
+  // 🔥 NAYA STATE: Selected country track karne ke liye
+  const [shippingCountry, setShippingCountry] = useState('');
+
   // COUPON STATES
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [discount, setDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
 
-  const { taxRate, freeShippingThreshold, convertPrice, loading: currencyLoading } = useGlobalCurrency();
+  // 🔥 Context se Naye Shipping variables nikaale
+  const {
+    taxRate,
+    freeShippingThreshold,
+    shippingIndia,   // Admin panel se aayega
+    shippingTier1,   // Admin panel se aayega
+    shippingRow,     // Admin panel se aayega
+    convertPrice,
+    loading: currencyLoading
+  } = useGlobalCurrency();
 
   useEffect(() => {
     // 🔥 FIX 1.1: Agar order success ho gaya hai, toh cart mein redirect mat karo
@@ -55,7 +67,23 @@ export default function CheckoutPage() {
 
   const subtotal = getSubtotal();
   const isFreeShipping = appliedCoupon?.type === 'FREE_SHIPPING';
-  const shipping = isFreeShipping || subtotal >= freeShippingThreshold ? 0 : 10;
+
+  // 🔥 DYNAMIC SHIPPING LOGIC
+  let baseShippingUSD = 0;
+
+  if (isFreeShipping || subtotal >= freeShippingThreshold) {
+    baseShippingUSD = 0;
+  } else if (!shippingCountry) {
+    baseShippingUSD = 0; // Jab tak country select nahi hoti, 0 dikhao
+  } else if (shippingCountry === 'India') {
+    baseShippingUSD = shippingIndia;
+  } else if (['United States', 'Canada', 'United Kingdom', 'Australia', 'Germany', 'France'].includes(shippingCountry)) {
+    baseShippingUSD = shippingTier1;
+  } else {
+    baseShippingUSD = shippingRow;
+  }
+
+  const shipping = baseShippingUSD;
   const tax = subtotal * (taxRate / 100);
   const total = Math.max(0, subtotal + shipping + tax - discount);
 
@@ -178,7 +206,12 @@ export default function CheckoutPage() {
             <div className="lg:col-span-2">
               <div className="rounded-3xl bg-white p-6 md:p-10 shadow-sm border border-slate-100">
                 <h2 className="text-xl font-black uppercase tracking-widest text-slate-900 mb-8 border-b border-slate-100 pb-4">Contact & Delivery</h2>
-                <CheckoutForm onSubmit={handleSubmit} isLoading={isProcessing} />
+                {/* 🔥 NAYA FIX: onCountryChange prop paas kiya */}
+                <CheckoutForm
+                  onSubmit={handleSubmit}
+                  isLoading={isProcessing}
+                  onCountryChange={(country) => setShippingCountry(country)}
+                />
               </div>
             </div>
 
