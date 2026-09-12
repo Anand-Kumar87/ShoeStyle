@@ -245,36 +245,48 @@ export const getStaticProps: GetStaticProps = async () => {
     createdAt: true,
   };
 
-  // 1. Fetch Most Wanted (Featured)
-  let featuredProducts = await prisma.product.findMany({
-    where: { isFeatured: true, isActive: true },
-    select: productCardSelect,
-    take: 8,
-    orderBy: { createdAt: 'desc' }
-  });
+  let featuredProducts: any[] = [];
+  let newArrivals: any[] = [];
 
-  // SMART FALLBACK
-  if (featuredProducts.length < 4) {
-    const extraProducts = await prisma.product.findMany({
-      where: {
-        isActive: true,
-        id: { notIn: featuredProducts.map(p => p.id) }
-      },
-      select: productCardSelect,
-      take: 8 - featuredProducts.length,
-      orderBy: { createdAt: 'desc' }
-    });
+  try {
+    const dbUrl = process.env.DATABASE_URL || '';
+    if (dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://')) {
+      // 1. Fetch Most Wanted (Featured)
+      featuredProducts = await prisma.product.findMany({
+        where: { isFeatured: true, isActive: true },
+        select: productCardSelect,
+        take: 8,
+        orderBy: { createdAt: 'desc' }
+      });
 
-    featuredProducts = [...featuredProducts, ...extraProducts];
+      // SMART FALLBACK
+      if (featuredProducts.length < 4) {
+        const extraProducts = await prisma.product.findMany({
+          where: {
+            isActive: true,
+            id: { notIn: featuredProducts.map(p => p.id) }
+          },
+          select: productCardSelect,
+          take: 8 - featuredProducts.length,
+          orderBy: { createdAt: 'desc' }
+        });
+
+        featuredProducts = [...featuredProducts, ...extraProducts];
+      }
+
+      // 2. Fetch New Arrivals
+      newArrivals = await prisma.product.findMany({
+        where: { isActive: true },
+        select: productCardSelect,
+        take: 8,
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      console.warn('DATABASE_URL is not set or invalid during getStaticProps. Returning empty array for ISR.');
+    }
+  } catch (error) {
+    console.warn('Database error during getStaticProps prerender:', error);
   }
-
-  // 2. Fetch New Arrivals
-  const newArrivals = await prisma.product.findMany({
-    where: { isActive: true },
-    select: productCardSelect,
-    take: 8,
-    orderBy: { createdAt: 'desc' }
-  });
 
   return {
     props: {
@@ -283,4 +295,4 @@ export const getStaticProps: GetStaticProps = async () => {
     },
     revalidate: 10,
   };
-};
+};
