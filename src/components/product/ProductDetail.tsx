@@ -23,9 +23,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onAddToCart }) =
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false); // 👈 Size Guide Modal State
 
-  const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
+  const { convertPrice, loading: currencyLoading, freeShippingThreshold } = useGlobalCurrency();
 
   const images = product.images || [product.image];
+
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -209,8 +210,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onAddToCart }) =
             <div className="flex items-center gap-3 text-sm">
               <Truck className="h-5 w-5 text-neutral-600" />
               <span className="text-neutral-900">
-                Free shipping on orders over {currencyLoading ? '...' : convertPrice(100)}
+                Free shipping on orders over {currencyLoading ? '...' : convertPrice(freeShippingThreshold || 1500)}
               </span>
+
             </div>
             <div className="flex items-center gap-3 text-sm">
               <RefreshCw className="h-5 w-5 text-neutral-600" />

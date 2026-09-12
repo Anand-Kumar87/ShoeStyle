@@ -136,8 +136,9 @@ const Header: React.FC = () => {
               )}
             </div>
           ) : (
-            <span>Free Shipping on Orders Over $100 | <span className="text-lime-400 font-bold">New Arrivals Daily</span></span>
+            <span>Free Shipping on Orders Over {convertPrice(freeShippingThreshold || 1500)} | <span className="text-lime-400 font-bold">New Arrivals Daily</span></span>
           )}
+
         </div>
 
         <div className="border-b border-neutral-200/50">

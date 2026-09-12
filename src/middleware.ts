@@ -25,7 +25,13 @@ export async function middleware(request: NextRequest) {
 
   // 🛡️ API Gateway Level Protection for Admin APIs
   if (path.startsWith('/api/admin')) {
+    // Allow public read of store settings
+    if (path === '/api/admin/settings' && request.method === 'GET') {
+      return NextResponse.next();
+    }
+
     const userRole = token?.role?.toString().toUpperCase();
+
 
     if (!token || userRole !== 'ADMIN') {
       console.warn(`[GATEWAY SECURITY ALERT] Blocked unauthorized API access: ${path}`);

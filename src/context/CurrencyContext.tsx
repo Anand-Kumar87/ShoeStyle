@@ -22,7 +22,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const [currency, setCurrency] = useState('INR');
     const [rate, setRate] = useState(1);
     const [taxRate, setTaxRate] = useState(0);
-    const [freeShippingThreshold, setFreeShippingThreshold] = useState(100);
+    const [freeShippingThreshold, setFreeShippingThreshold] = useState(1500);
     const [loading, setLoading] = useState(true);
 
     // 🔥 NAYE SHIPPING STATES (Default values in INR)
@@ -56,9 +56,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function initGlobalSettings() {
             try {
-                // 1. Database se saari Admin Settings uthao
-                const dbRes = await fetch('/api/admin/settings');
+                // 1. Public Settings endpoint se Admin settings fetch karo (Accessible to ALL users)
+                let dbRes = await fetch('/api/settings');
+                if (!dbRes.ok) {
+                    dbRes = await fetch('/api/admin/settings');
+                }
                 const dbData = await dbRes.json();
+
 
                 setTaxRate(typeof dbData.taxRate === 'number' ? dbData.taxRate : Number(dbData.taxRate) || 0);
                 if (dbData.freeShippingAmount !== undefined && dbData.freeShippingAmount !== null) {
