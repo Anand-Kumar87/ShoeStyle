@@ -9,6 +9,7 @@ import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import { Search, Heart, ShoppingBag, User, Menu, X, ChevronDown, Tag } from 'lucide-react';
 import CartDrawer from '@/components/cart/CartDrawer';
+import CurrencySwitcher from '@/components/common/CurrencySwitcher';
 import { useSession, signOut } from 'next-auth/react';
 
 // 🔥 1. Import Global Currency Hook
@@ -76,6 +77,13 @@ const Header: React.FC = () => {
     }
   };
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsMobileMenuOpen(false);
+    setIsSearchOpen(false);
+    router.push('/');
+  };
+
   const navigation = [
     {
       name: 'New Arrivals',
@@ -106,6 +114,9 @@ const Header: React.FC = () => {
 
   return (
     <>
+      {/* 🔥 PREMIUM: Floating Currency Switcher */}
+      <CurrencySwitcher />
+
       <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm' : 'bg-white'}`}>
 
         {/* 🔥 PREMIUM DYNAMIC BANNER */}
@@ -143,8 +154,12 @@ const Header: React.FC = () => {
               </button>
 
               {/* Logo */}
-              <Link href="/" className="flex items-center group">
-                <span className="text-2xl sm:text-3xl font-display font-black tracking-tighter text-neutral-900 group-hover:text-black transition-colors">
+              <Link
+                href="/"
+                onClick={handleLogoClick}
+                className="flex items-center group cursor-pointer select-none active:opacity-75 z-20"
+              >
+                <span className="text-2xl sm:text-3xl font-display font-black tracking-tighter text-neutral-900 group-hover:text-black transition-colors cursor-pointer">
                   SHOESTYLE
                 </span>
               </Link>
@@ -264,11 +279,12 @@ const Header: React.FC = () => {
                         </div>
                         <Link href="/account" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black font-medium">My Account</Link>
                         <Link href="/orders" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black font-medium">Orders</Link>
-                        {session.user.role === 'admin' && (
+                        {/* 🔥 Z+ SECURITY FIX: Desktop Menu Case Insensitive Role Check */}
+                        {session.user?.role?.toUpperCase() === 'ADMIN' && (
                           <Link href="/admin" className="block px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 font-bold">Admin Panel</Link>
                         )}
                         <button
-                          onClick={() => signOut()}
+                          onClick={() => signOut({ callbackUrl: '/auth/signin' })}
                           className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 font-medium mt-2 border-t border-neutral-100 pt-3"
                         >
                           Sign Out
@@ -357,10 +373,11 @@ const Header: React.FC = () => {
                     </div>
                     <Link href="/account" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl font-medium text-neutral-600 hover:bg-neutral-50 hover:text-black">My Account</Link>
                     <Link href="/orders" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl font-medium text-neutral-600 hover:bg-neutral-50 hover:text-black">Orders</Link>
-                    {session.user.role === 'admin' && (
+                    {/* 🔥 Z+ SECURITY FIX: Mobile Menu Case Insensitive Role Check */}
+                    {session.user?.role?.toUpperCase() === 'ADMIN' && (
                       <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl font-bold text-blue-600 hover:bg-blue-50">Admin Panel</Link>
                     )}
-                    <button onClick={() => { signOut(); setIsMobileMenuOpen(false); }} className="block w-full text-left px-4 py-3 mt-4 rounded-xl font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">Sign Out</button>
+                    <button onClick={() => { setIsMobileMenuOpen(false); signOut({ callbackUrl: '/auth/signin' }); }} className="block w-full text-left px-4 py-3 mt-4 rounded-xl font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">Sign Out</button>
                   </div>
                 ) : (
                   <Link href="/auth/signin" onClick={() => setIsMobileMenuOpen(false)} className="block px-4 py-4 rounded-xl font-bold bg-black text-white text-center shadow-md">

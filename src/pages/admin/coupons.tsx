@@ -12,13 +12,13 @@ interface Coupon { id: string; code: string; description: string | null; discoun
 const empty = { code: '', description: '', discountType: 'PERCENTAGE', discountValue: '', usageLimit: '', expiresAt: '' };
 
 const inputCls = `w-full rounded-xl px-4 py-3 text-sm font-medium outline-none transition-all
-  bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 
-  focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 focus:bg-white`;
+  bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 
+  focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 focus:bg-white dark:focus:bg-slate-900`;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-slate-500">{label}</label>
+      <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-slate-500 dark:text-slate-400">{label}</label>
       {children}
     </div>
   );
@@ -26,10 +26,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function SkeletonRow() {
   return (
-    <tr className="border-b border-slate-100">
+    <tr className="border-b border-slate-100 dark:border-slate-800">
       {Array.from({ length: 7 }).map((_, i) => (
         <td key={i} className="px-6 py-5">
-          <div className="h-4 rounded-md animate-pulse w-4/5 bg-slate-200" />
+          <div className="h-4 rounded-md animate-pulse w-4/5 bg-slate-200 dark:bg-slate-800" />
         </td>
       ))}
     </tr>
@@ -86,10 +86,10 @@ export default function AdminCoupons() {
           <div className="max-w-7xl mx-auto space-y-8">
 
             {/* Premium Header Section */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white dark:bg-[#0f172a] p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
               <div>
-                <p className="text-xs font-black uppercase tracking-widest text-blue-600 mb-1">Discounts</p>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Coupons</h1>
+                <p className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">Discounts</p>
+                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Coupons</h1>
               </div>
               <motion.button
                 whileTap={{ scale: 0.96 }}
@@ -101,47 +101,47 @@ export default function AdminCoupons() {
             </div>
 
             {/* Table Container */}
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white dark:bg-[#0f172a] rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-100">
+                  <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
                     <tr>
                       {['Code', 'Type', 'Value', 'Used / Limit', 'Expires', 'Status', 'Actions'].map(h => (
-                        <th key={h} className="px-6 py-5 text-[11px] font-black uppercase tracking-widest text-slate-500">{h}</th>
+                        <th key={h} className="px-6 py-5 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{h}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {loading
                       ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
                       : coupons.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-6 py-20 text-center">
-                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-50 mb-4">
-                              <Tag size={28} className="text-slate-400" />
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800/50 mb-4">
+                              <Tag size={28} className="text-slate-400 dark:text-slate-500" />
                             </div>
-                            <p className="text-slate-500 text-base font-medium">No coupons found.</p>
+                            <p className="text-slate-500 dark:text-slate-400 text-base font-medium">No coupons found.</p>
                           </td>
                         </tr>
                       )
                         : coupons.map(c => (
                           <motion.tr key={c.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                            className="group hover:bg-slate-50/50 transition-colors">
+                            className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                             <td className="px-6 py-5">
                               <div className="flex items-center gap-3">
-                                <span className="font-mono font-black text-sm tracking-wider text-slate-900 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">{c.code}</span>
+                                <span className="font-mono font-black text-sm tracking-wider text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">{c.code}</span>
                                 <button onClick={() => { navigator.clipboard.writeText(c.code); toast.success(`Copied "${c.code}"`); }}
-                                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md transition-all text-slate-400 hover:text-slate-900 hover:bg-slate-100">
+                                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md transition-all text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800">
                                   <Copy size={14} />
                                 </button>
                               </div>
                             </td>
-                            <td className="px-6 py-5 text-xs font-bold text-slate-500">{c.discountType.replace('_', ' ')}</td>
-                            <td className="px-6 py-5 font-black text-slate-900 text-[15px]">{c.discountType === 'PERCENTAGE' ? `${c.discountValue}%` : `$${c.discountValue}`}</td>
-                            <td className="px-6 py-5 text-sm font-medium text-slate-500">{c.usageCount} <span className="text-slate-300 mx-1">/</span> {c.usageLimit ?? '∞'}</td>
-                            <td className="px-6 py-5 text-sm font-medium text-slate-500">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                            <td className="px-6 py-5 text-xs font-bold text-slate-500 dark:text-slate-400">{c.discountType.replace('_', ' ')}</td>
+                            <td className="px-6 py-5 font-black text-slate-900 dark:text-white text-[15px]">{c.discountType === 'PERCENTAGE' ? `${c.discountValue}%` : `$${c.discountValue}`}</td>
+                            <td className="px-6 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">{c.usageCount} <span className="text-slate-300 dark:text-slate-600 mx-1">/</span> {c.usageLimit ?? '∞'}</td>
+                            <td className="px-6 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
                             <td className="px-6 py-5">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${c.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${c.isActive ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800'}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${c.isActive ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                                 {c.isActive ? 'Active' : 'Inactive'}
                               </span>
@@ -149,11 +149,11 @@ export default function AdminCoupons() {
                             <td className="px-6 py-5">
                               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <motion.button whileTap={{ scale: 0.9 }} onClick={() => openEdit(c)}
-                                  className="p-2 rounded-lg transition-colors bg-slate-50 hover:bg-blue-100 text-slate-400 hover:text-blue-600">
+                                  className="p-2 rounded-lg transition-colors bg-slate-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-slate-400 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
                                   <Pencil size={14} />
                                 </motion.button>
                                 <motion.button whileTap={{ scale: 0.9 }} onClick={() => del(c.id, c.code)}
-                                  className="p-2 rounded-lg transition-colors bg-slate-50 hover:bg-red-100 text-slate-400 hover:text-red-600">
+                                  className="p-2 rounded-lg transition-colors bg-slate-50 dark:bg-slate-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400">
                                   <Trash2 size={14} />
                                 </motion.button>
                               </div>
@@ -178,11 +178,11 @@ export default function AdminCoupons() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="w-full max-w-md p-8 rounded-3xl shadow-2xl bg-white border border-slate-100"
+              className="w-full max-w-md p-8 rounded-3xl shadow-2xl bg-white dark:bg-[#0f172a] border border-slate-100 dark:border-slate-800"
             >
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">{modal === 'add' ? 'Add Coupon' : 'Edit Coupon'}</h2>
-                <button onClick={() => setModal(null)} className="p-2 rounded-full transition-colors bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-900">
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{modal === 'add' ? 'Add Coupon' : 'Edit Coupon'}</h2>
+                <button onClick={() => setModal(null)} className="p-2 rounded-full transition-colors bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                   <X size={18} strokeWidth={2.5} />
                 </button>
               </div>
@@ -190,7 +190,7 @@ export default function AdminCoupons() {
               <div className="space-y-5">
                 <Field label="Code">
                   <input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                    className={`${inputCls} font-mono font-black tracking-widest text-blue-600`} placeholder="e.g. SUMMER20" />
+                    className={`${inputCls} font-mono font-black tracking-widest text-blue-600 dark:text-blue-400`} placeholder="e.g. SUMMER20" />
                 </Field>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -236,8 +236,16 @@ export default function AdminCoupons() {
   );
 }
 
+// Security Check: Only allow admins to access this page
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const session = await getServerSession(ctx.req, ctx.res, authOptions);
-  if (!session || session.user?.role !== 'admin') return { redirect: { destination: '/auth/signin', permanent: false } };
+
+  // 🔥 Case-Insensitive Check
+  const isAdmin = session?.user?.role?.toString().toUpperCase() === 'ADMIN';
+
+  if (!session || !isAdmin) {
+    return { redirect: { destination: '/auth/signin', permanent: false } };
+  }
+
   return { props: {} };
 };

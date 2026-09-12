@@ -209,8 +209,16 @@ export default function AdminProducts() {
   );
 }
 
+// Security Check: Only allow admins to access this page
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const session = await getServerSession(ctx.req, ctx.res, authOptions);
-  if (!session || session.user?.role !== 'admin') return { redirect: { destination: '/auth/signin', permanent: false } };
+
+  // 🔥 Case-Insensitive Check
+  const isAdmin = session?.user?.role?.toString().toUpperCase() === 'ADMIN';
+
+  if (!session || !isAdmin) {
+    return { redirect: { destination: '/auth/signin', permanent: false } };
+  }
+
   return { props: {} };
 };

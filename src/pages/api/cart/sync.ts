@@ -44,6 +44,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: true,
           name: true,
           price: true,
+          isSale: true,
+          salePrice: true,
           image: true,
           images: true,
           stock: true,
@@ -55,6 +57,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log(`Skipping invalid/inactive product: ${productId}`);
         continue;
       }
+
+      const effectivePrice = (product.isSale && product.salePrice && product.price > product.salePrice)
+        ? product.salePrice
+        : product.price;
 
       // Check if item already exists in user's cart
       const existingItem = existingCartItems.find(
@@ -80,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: updatedItem.id,
           productId: updatedItem.productId,
           name: product.name,
-          price: product.price,
+          price: effectivePrice,
           image: product.image || product.images?.[0] || '/placeholder.jpg',
           size: updatedItem.size || '',
           color: updatedItem.color || '',
@@ -104,7 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: newItem.id,
           productId: newItem.productId,
           name: product.name,
-          price: product.price,
+          price: effectivePrice,
           image: product.image || product.images?.[0] || '/placeholder.jpg',
           size: newItem.size || '',
           color: newItem.color || '',

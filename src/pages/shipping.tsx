@@ -9,37 +9,53 @@ import {
 } from 'lucide-react';
 // 🔥 Currency Hook for dynamic shipping costs
 import { useGlobalCurrency } from '@/context/CurrencyContext';
+import type { GetServerSideProps } from 'next';
+import prisma from '@/lib/prisma';
 
-export default function Shipping() {
+interface ShippingProps {
+  freeShippingThreshold?: number;
+  standardRate?: number;
+  expressRate?: number;
+  overnightRate?: number;
+}
+
+export default function Shipping({
+  freeShippingThreshold = 1500,
+  standardRate = 99,
+  expressRate = 199,
+  overnightRate = 299,
+}: ShippingProps) {
   const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
+
 
   // Tracking State
   const [trackingNumber, setTrackingNumber] = useState('');
   const [isTracking, setIsTracking] = useState(false);
   const [trackingResult, setTrackingResult] = useState<any>(null);
+  const [trackError, setTrackError] = useState('');
 
-  const handleTrackOrder = (e: React.FormEvent) => {
+  const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackingNumber.trim()) return;
 
     setIsTracking(true);
     setTrackingResult(null);
+    setTrackError('');
 
-    // Simulate API Call for tracking
-    setTimeout(() => {
+    try {
+      const res = await fetch(`/api/orders/track?number=${encodeURIComponent(trackingNumber.trim())}`);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setTrackingResult(data);
+      } else {
+        setTrackError(data.message || 'No order found with this tracking reference. Please check your Order ID.');
+      }
+    } catch {
+      setTrackError('Failed to connect to tracking server. Please try again.');
+    } finally {
       setIsTracking(false);
-      setTrackingResult({
-        status: 'In Transit',
-        location: 'Local Sorting Facility, New Delhi',
-        estimatedDelivery: 'Tomorrow by 8:00 PM',
-        steps: [
-          { title: 'Order Placed', desc: 'We have received your order', time: 'Oct 24, 10:00 AM', done: true },
-          { title: 'Shipped', desc: 'Package left our facility', time: 'Oct 25, 2:30 PM', done: true },
-          { title: 'In Transit', desc: 'Arrived at local sorting facility', time: 'Oct 26, 9:15 AM', done: true },
-          { title: 'Out for Delivery', desc: 'Package is with the driver', time: 'Pending', done: false },
-        ]
-      });
-    }, 1500);
+    }
   };
 
   return (
@@ -86,7 +102,7 @@ export default function Shipping() {
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-wide text-emerald-400">Free Standard Shipping</h2>
                 <p className="text-gray-300 font-medium">
-                  On all domestic orders over <span className="text-white font-bold">{currencyLoading ? '...' : convertPrice(50)}</span>
+                  On all domestic orders over <span className="text-white font-bold">{currencyLoading ? '...' : convertPrice(freeShippingThreshold)}</span>
                 </p>
               </div>
             </div>
@@ -108,8 +124,8 @@ export default function Shipping() {
               {
                 name: 'Standard Delivery',
                 time: '3-5 Business Days',
-                cost: `FREE over ${convertPrice(50)}`,
-                subCost: `Otherwise ${convertPrice(5.99)}`,
+                cost: `FREE over ${convertPrice(freeShippingThreshold)}`,
+                subCost: `Otherwise ${convertPrice(standardRate)}`,
                 icon: <Truck size={32} />,
                 features: ['Full Tracking included', 'Signature not required', 'Eco-friendly packaging'],
                 popular: false,
@@ -118,7 +134,7 @@ export default function Shipping() {
               {
                 name: 'Express Delivery',
                 time: '1-2 Business Days',
-                cost: convertPrice(14.99),
+                cost: convertPrice(expressRate),
                 subCost: 'Flat rate nationwide',
                 icon: <Zap size={32} />,
                 features: ['Priority order handling', 'Full Tracking included', 'Signature required'],
@@ -128,7 +144,7 @@ export default function Shipping() {
               {
                 name: 'Overnight Priority',
                 time: 'Next Business Day',
-                cost: convertPrice(24.99),
+                cost: convertPrice(overnightRate),
                 subCost: 'Order before 2 PM',
                 icon: <Rocket size={32} />,
                 features: ['Fastest option available', 'Real-time GPS tracking', 'Secure hand-delivery'],
@@ -212,6 +228,13 @@ export default function Shipping() {
                   )}
                 </button>
               </form>
+
+              {trackError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-2xl mb-8 text-sm font-bold flex items-center gap-3">
+                  <span>❌</span>
+                  <span>{trackError}</span>
+                </div>
+              )}
 
               {/* Live Tracking Result */}
               <AnimatePresence mode="wait">
@@ -357,3 +380,49 @@ export default function Shipping() {
     </Layout>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  try {
+    const storeSettings = await prisma.storeSettings.findFirst();
+    const settingRows = await prisma.setting.findMany({
+      where: {
+        key: { in: ['shipping_standard_rate', 'shipping_express_rate', 'shipping_overnight_rate'] }
+      }
+    });
+    const settingMap = settingRows.reduce((acc, r) => {
+      acc[r.key] = parseFloat(r.value);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const expressZone = await prisma.shippingZone.findFirst({
+      where: { name: { contains: 'Express', mode: 'insensitive' }, isActive: true },
+    });
+    const overnightZone = await prisma.shippingZone.findFirst({
+      where: { name: { contains: 'Overnight', mode: 'insensitive' }, isActive: true },
+    });
+
+    const freeShippingThreshold = storeSettings?.freeShippingAmount ?? 1500;
+    const standardRate = settingMap['shipping_standard_rate'] ?? 99;
+    const expressRate = settingMap['shipping_express_rate'] ?? (expressZone?.baseCost && expressZone.baseCost > 30 ? expressZone.baseCost : 199);
+    const overnightRate = settingMap['shipping_overnight_rate'] ?? (overnightZone?.baseCost && overnightZone.baseCost > 30 ? overnightZone.baseCost : 299);
+
+    return {
+      props: {
+        freeShippingThreshold,
+        standardRate,
+        expressRate,
+        overnightRate,
+      },
+    };
+  } catch (err) {
+    console.error('Shipping getServerSideProps error:', err);
+    return {
+      props: {
+        freeShippingThreshold: 1500,
+        standardRate: 99,
+        expressRate: 199,
+        overnightRate: 299,
+      },
+    };
+  }
+};

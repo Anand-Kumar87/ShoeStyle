@@ -1,60 +1,111 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import Razorpay from 'razorpay';
+import { NextApiRequest, NextApiResponse } from "next";
+import Razorpay from "razorpay";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+
+// Razorpay instance initialize karna
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+    if (req.method !== "POST") {
+        return res.status(405).json({ message: "Method Not Allowed" });
     }
-
-    const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const key_secret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!key_id || !key_secret) {
-        return res.status(500).json({ error: 'Razorpay keys are missing on the server.' });
-    }
-
-    const razorpay = new Razorpay({ key_id, key_secret });
 
     try {
-        const { amount, orderId } = req.body;
+        const session = await getServerSession(req, res, authOptions);
+        const { amount, orderId, items, shippingAddress } = req.body;
 
-        if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+        // Mode 1: Order already exists in DB (Primary Flow from /checkout/payment)
+        if (orderId) {
+            const existingOrder = await prisma.order.findUnique({
+                where: { id: orderId },
+            });
 
-        let exchangeRate = 83.50; // Fallback / Safe Rate
-
-        try {
-            // 🔥 RAZORPAY LIVE INR CONVERSION
-            const exResponse = await fetch('https://open.er-api.com/v6/latest/USD');
-            const exData = await exResponse.json();
-
-            if (exData && exData.rates && exData.rates.INR) {
-                exchangeRate = exData.rates.INR;
+            if (!existingOrder) {
+                return res.status(404).json({ error: "Order not found" });
             }
-        } catch (fetchError) {
-            console.error("Failed to fetch live exchange rate", fetchError);
+
+            const finalAmount = existingOrder.total > 0 ? existingOrder.total : (amount || 0);
+
+            // Razorpay takes amount in paise (1 INR = 100 paise)
+            const options = {
+                amount: Math.round(finalAmount * 100),
+                currency: "INR",
+                receipt: `rcpt_${Date.now()}_${orderId.slice(0, 8)}`,
+            };
+
+            const razorpayOrder = await razorpay.orders.create(options);
+
+            // Attach Razorpay Order ID to the DB order
+            await prisma.order.update({
+                where: { id: orderId },
+                data: {
+                    paymentIntentId: razorpayOrder.id,
+                    paymentMethod: "RAZORPAY",
+                },
+            });
+
+            return res.status(200).json({
+                id: razorpayOrder.id,
+                currency: razorpayOrder.currency,
+                amount: razorpayOrder.amount,
+                dbOrderId: existingOrder.id,
+            });
         }
 
-        // Razorpay always charges in INR, so we convert Base USD -> INR
-        const finalAmountInINR = amount * exchangeRate;
-        const finalPaiseAmount = Math.round(finalAmountInINR * 100);
+        // Mode 2: Direct creation if orderId is not yet generated
+        if (!amount || amount <= 0) {
+            return res.status(400).json({ error: "Invalid order amount" });
+        }
 
         const options = {
-            amount: finalPaiseAmount,
+            amount: Math.round(amount * 100),
             currency: "INR",
-            receipt: orderId.toString().substring(0, 40),
-            payment_capture: 1
+            receipt: `rcpt_${Date.now()}_${session?.user?.id || 'guest'}`,
         };
 
-        const response = await razorpay.orders.create(options);
+        const razorpayOrder = await razorpay.orders.create(options);
+
+        // If shippingAddress is provided, save order
+        let newOrderId = null;
+        if (shippingAddress) {
+            const newOrder = await prisma.order.create({
+                data: {
+                    orderNumber: razorpayOrder.id,
+                    userId: session?.user?.id || null,
+                    firstName: shippingAddress.firstName || shippingAddress.name?.split(" ")[0] || "Customer",
+                    lastName: shippingAddress.lastName || shippingAddress.name?.split(" ")[1] || "",
+                    email: shippingAddress.email || session?.user?.email || "customer@shoestyle.com",
+                    phone: shippingAddress.phone || "0000000000",
+                    address: shippingAddress.street || shippingAddress.address || "",
+                    city: shippingAddress.city || "",
+                    state: shippingAddress.state || "",
+                    zipCode: shippingAddress.zipCode || shippingAddress.zip || "",
+                    country: shippingAddress.country || "IN",
+                    subtotal: amount,
+                    total: amount,
+                    status: "PENDING",
+                    paymentStatus: "PENDING",
+                    paymentMethod: "RAZORPAY",
+                    paymentIntentId: razorpayOrder.id,
+                },
+            });
+            newOrderId = newOrder.id;
+        }
 
         return res.status(200).json({
-            id: response.id,
-            currency: response.currency,
-            amount: response.amount,
+            id: razorpayOrder.id,
+            currency: razorpayOrder.currency,
+            amount: razorpayOrder.amount,
+            dbOrderId: newOrderId,
         });
 
     } catch (error: any) {
-        console.error('Razorpay Order Creation Error:', error);
-        return res.status(500).json({ error: 'Failed to create Razorpay order', details: error.message });
+        console.error("Razorpay Order Error:", error);
+        return res.status(500).json({ error: "Something went wrong during order creation.", details: error?.message });
     }
 }

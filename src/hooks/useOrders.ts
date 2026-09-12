@@ -11,10 +11,10 @@ interface Order {
   items: any[];
 }
 
-export function useOrders() {
+export function useOrders(initialOrders?: Order[]) {
   const { data: session, status } = useSession();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>(initialOrders || []);
+  const [loading, setLoading] = useState(!initialOrders && status !== 'unauthenticated');
 
   const fetchOrders = async () => {
     if (status !== 'authenticated') {

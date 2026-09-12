@@ -8,50 +8,34 @@ import {
   MessageCircle, HelpCircle, PhoneCall, Info
 } from 'lucide-react';
 
-const faqs = [
-  {
-    category: 'Orders & Shipping',
-    icon: <Package size={20} />,
-    questions: [
-      { q: 'How long does shipping take?', a: 'Standard shipping takes 3-5 business days. Express shipping is available for 1-2 day delivery. International orders typically arrive within 7-14 business days.' },
-      { q: 'Do you offer free shipping?', a: 'Yes! We offer free standard shipping on all orders over $50 within the continental US. Express shipping is available for an additional fee.' },
-      { q: 'Can I track my order?', a: 'Absolutely! Once your order ships, you\'ll receive a tracking number via email. You can also track your order in your account dashboard.' },
-      { q: 'Do you ship internationally?', a: 'Yes, we ship to over 100 countries worldwide. Shipping costs and delivery times vary by location.' }
-    ]
-  },
-  {
-    category: 'Returns & Exchanges',
-    icon: <RefreshCw size={20} />,
-    questions: [
-      { q: 'What is your return policy?', a: 'We offer a 30-day return policy. Items must be unworn, in original condition with tags attached. Return shipping is free for US customers.' },
-      { q: 'How do I initiate a return?', a: 'Log into your account, go to Order History, select the order, and click "Return Items". Follow the prompts to print your prepaid return label.' },
-      { q: 'Can I exchange for a different size?', a: 'Yes! We offer free exchanges within 30 days. Simply return your original item and place a new order for the correct size.' },
-      { q: 'When will I receive my refund?', a: 'Refunds are processed within 5-7 business days after we receive your return. The refund will be credited to your original payment method.' }
-    ]
-  },
-  {
-    category: 'Products & Sizing',
-    icon: <Info size={20} />,
-    questions: [
-      { q: 'How do I find my shoe size?', a: 'Check our Size Guide page for detailed measurements. We recommend measuring your foot and comparing it to our size chart for the best fit.' },
-      { q: 'Are your shoes true to size?', a: 'Most of our shoes fit true to size. However, sizing notes are provided on each product page if a style runs large or small.' },
-      { q: 'What materials are your shoes made from?', a: 'We use premium materials including genuine leather, suede, canvas, and sustainable synthetic materials. Material details are listed on each product page.' },
-      { q: 'Do you offer wide width shoes?', a: 'Yes! Many of our styles are available in wide widths. Use the width filter on our product pages to find wide-width options.' }
-    ]
-  },
-  {
-    category: 'Account & Payment',
-    icon: <HelpCircle size={20} />,
-    questions: [
-      { q: 'Do I need an account to place an order?', a: 'No, you can checkout as a guest. However, creating an account allows you to track orders, save favorites, and checkout faster.' },
-      { q: 'What payment methods do you accept?', a: 'We accept all major credit cards (Visa, Mastercard, Amex, Discover), PayPal, Apple Pay, Google Pay, and Shop Pay.' },
-      { q: 'Is my payment information secure?', a: 'Yes! We use industry-standard SSL encryption to protect your payment information. We never store your full credit card details.' },
-      { q: 'Can I use multiple discount codes?', a: 'Only one discount code can be applied per order. The code with the highest discount will be automatically applied.' }
-    ]
-  }
-];
+import type { GetServerSideProps } from 'next';
+import prisma from '@/lib/prisma';
+import { DEFAULT_FAQS } from './api/faq';
 
-export default function FAQ() {
+const getCategoryIcon = (iconOrCat: string) => {
+  const lower = (iconOrCat || '').toLowerCase();
+  if (lower.includes('package') || lower.includes('shipping') || lower.includes('order')) {
+    return <Package size={20} />;
+  }
+  if (lower.includes('refresh') || lower.includes('return') || lower.includes('exchange')) {
+    return <RefreshCw size={20} />;
+  }
+  if (lower.includes('info') || lower.includes('product') || lower.includes('sizing')) {
+    return <Info size={20} />;
+  }
+  return <HelpCircle size={20} />;
+};
+
+interface FAQProps {
+  initialFaqs?: Array<{
+    category: string;
+    iconName?: string;
+    questions: Array<{ q: string; a: string }>;
+  }>;
+}
+
+export default function FAQ({ initialFaqs }: FAQProps) {
+  const faqs = (initialFaqs && initialFaqs.length > 0) ? initialFaqs : DEFAULT_FAQS;
   const [activeCategory, setActiveCategory] = useState(0);
   const [openQuestion, setOpenQuestion] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,7 +49,8 @@ export default function FAQ() {
           q.a.toLowerCase().includes(searchQuery.toLowerCase())
       )
     })).filter(cat => cat.questions.length > 0)
-    : [faqs[activeCategory]];
+    : [faqs[Math.min(activeCategory, Math.max(0, faqs.length - 1))]];
+
 
   return (
     <Layout>
@@ -157,7 +142,7 @@ export default function FAQ() {
                       : 'bg-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
-                  {cat.icon} {cat.category}
+                  {getCategoryIcon((cat as any).iconName || cat.category)} {cat.category}
                 </button>
               ))}
             </div>
@@ -268,3 +253,48 @@ export default function FAQ() {
     </Layout>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  try {
+    const setting = await prisma.setting.findUnique({
+      where: { key: 'faq_data' },
+    });
+
+    let faqs = DEFAULT_FAQS;
+    if (setting?.value) {
+      try {
+        const parsed = JSON.parse(setting.value);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          faqs = parsed;
+        }
+      } catch {}
+    } else {
+      // Seed default FAQs into database setting if not present
+      await prisma.setting.upsert({
+        where: { key: 'faq_data' },
+        create: {
+          key: 'faq_data',
+          value: JSON.stringify(DEFAULT_FAQS),
+          type: 'json',
+          category: 'content',
+          description: 'Help Center & Frequently Asked Questions',
+          isPublic: true,
+        },
+        update: {},
+      }).catch(() => null);
+    }
+
+    return {
+      props: {
+        initialFaqs: faqs,
+      },
+    };
+  } catch (error) {
+    console.error('FAQ getServerSideProps error:', error);
+    return {
+      props: {
+        initialFaqs: DEFAULT_FAQS,
+      },
+    };
+  }
+};

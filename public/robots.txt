@@ -1,0 +1,29 @@
+# Production robots.txt for ShoeStyle E-Commerce
+User-agent: *
+Allow: /
+Allow: /products
+Allow: /categories
+Allow: /sale
+Allow: /faq
+Allow: /shipping
+Allow: /returns
+Allow: /size-guide
+Allow: /contact
+
+# Disallow private, auth, and API routes
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /api/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /orders/*
+Disallow: /auth/*
+Disallow: /reset-password
+
+# Crawl-delay for high traffic bot protection
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://shoestyle.in/sitemap.xml

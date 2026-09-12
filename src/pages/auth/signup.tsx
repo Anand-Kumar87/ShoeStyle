@@ -72,8 +72,9 @@ export default function SignUpPage() {
       console.log('Signup response:', data);
 
       if (response.ok) {
-        // Success - redirect to sign in
-        router.push('/auth/signin?registered=true');
+        // Success - redirect to sign in with callbackUrl
+        const callbackUrl = (router.query.callbackUrl as string) || '';
+        router.push(`/auth/signin?registered=true${callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`);
       } else {
         // Show specific error from API
         setErrors({
@@ -309,7 +310,10 @@ export default function SignUpPage() {
             {/* Sign In Link */}
             <p className="mt-6 text-center text-xs font-medium text-gray-500 relative z-10">
               Already have an account?{' '}
-              <Link href="/auth/signin" className="text-gray-900 font-bold hover:text-orange-500 transition-colors">
+              <Link
+                href={`/auth/signin${router.query.callbackUrl ? `?callbackUrl=${encodeURIComponent(router.query.callbackUrl as string)}` : ''}`}
+                className="text-gray-900 font-bold hover:text-orange-500 transition-colors"
+              >
                 Sign in
               </Link>
             </p>

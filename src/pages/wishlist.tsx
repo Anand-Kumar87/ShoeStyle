@@ -6,7 +6,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 // 🔥 Premium Icons
-import { Heart, ShoppingBag, Trash2, X, Sparkles, ArrowRight, HeartCrack } from 'lucide-react';
+import { Heart, ShoppingBag, Trash2, X, Sparkles, ArrowRight, ArrowLeft, HeartCrack } from 'lucide-react';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 
 import { useWishlist } from '@/hooks/useWishlist';
 // 🔥 Import Global Currency Hook
@@ -44,10 +46,22 @@ export default function WishlistPage({ user }: WishlistPageProps) {
         <meta name="description" content="Your saved favorite shoes" />
       </Head>
 
-      <div className="min-h-screen bg-[#F8F9FA] text-gray-900 pb-20 selection:bg-red-500 selection:text-white">
+      <Header />
+
+      <main className="min-h-screen bg-[#F8F9FA] text-gray-900 pb-20 selection:bg-red-500 selection:text-white pt-24">
+        {/* Back to store navigation button */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2">
+          <Link
+            href="/products"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 text-sm font-bold text-gray-600 hover:text-black hover:border-black transition-all shadow-sm group"
+          >
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Store</span>
+          </Link>
+        </div>
 
         {/* 🔥 Premium Minimalist Hero Section */}
-        <section className="relative pt-32 pb-20 overflow-hidden bg-white border-b border-gray-100">
+        <section className="relative pt-12 pb-16 overflow-hidden bg-white border-b border-gray-100 mt-4">
           {/* Subtle soft blobs for background depth */}
           <div className="absolute top-[-20%] left-[10%] w-[400px] h-[400px] bg-red-50 rounded-full blur-[100px] pointer-events-none" />
           <div className="absolute top-[20%] right-[10%] w-[300px] h-[300px] bg-orange-50 rounded-full blur-[100px] pointer-events-none" />
@@ -260,7 +274,9 @@ export default function WishlistPage({ user }: WishlistPageProps) {
             </motion.div>
           )}
         </section>
-      </div>
+      </main>
+
+      <Footer />
     </>
   );
 }

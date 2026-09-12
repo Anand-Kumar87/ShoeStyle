@@ -1,14 +1,21 @@
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Package, ShoppingBag, ArrowRight, Mail } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { useCart } from '@/hooks/useCart';
 
 export default function CheckoutSuccessPage() {
   const router = useRouter();
   const { orderId } = router.query;
+  const { clearCart } = useCart();
+
+  useEffect(() => {
+    clearCart();
+  }, [clearCart]);
 
   // Animation Variants
   const containerVariants = {

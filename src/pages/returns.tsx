@@ -14,20 +14,36 @@ export default function Returns() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [returnInfo, setReturnInfo] = useState<any>(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleReturnRequest = (e: React.FormEvent) => {
+  const handleReturnRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    if (!orderNumber || !email) return;
 
-    setTimeout(() => {
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      const res = await fetch('/api/returns/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNumber, email }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setReturnInfo(data);
+        setIsSubmitted(true);
+      } else {
+        setErrorMessage(data.message || 'No matching order found for this Order Number and Email.');
+      }
+    } catch {
+      setErrorMessage('Could not connect to returns server. Please try again.');
+    } finally {
       setIsLoading(false);
-      setIsSubmitted(true);
-      setTimeout(() => {
-        setIsSubmitted(false);
-        setOrderNumber('');
-        setEmail('');
-      }, 5000);
-    }, 1500);
+    }
   };
 
   return (
@@ -229,16 +245,24 @@ export default function Returns() {
                         />
                       </div>
                     </div>
+
+                    {errorMessage && (
+                      <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 text-center">
+                        <span>❌</span>
+                        <span>{errorMessage}</span>
+                      </div>
+                    )}
+
                     <div className="pt-8 text-center">
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="inline-flex items-center justify-center gap-3 bg-gray-900 text-white px-12 py-5 rounded-full font-black text-lg hover:bg-black transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 disabled:opacity-70 disabled:hover:translate-y-0"
+                        className="inline-flex items-center justify-center gap-3 bg-gray-900 text-white px-12 py-5 rounded-full font-black text-lg hover:bg-black transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 disabled:opacity-70 disabled:hover:translate-y-0 cursor-pointer"
                       >
                         {isLoading ? (
                           <span className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></span>
                         ) : (
-                          <>Locate Order <ArrowRight size={20} /></>
+                          <>Submit Return Request <ArrowRight size={20} /></>
                         )}
                       </button>
                     </div>
@@ -248,13 +272,29 @@ export default function Returns() {
                     key="success"
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="absolute inset-0 flex flex-col items-center justify-center text-center h-full"
+                    className="flex flex-col items-center justify-center text-center py-8"
                   >
-                    <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                      <CheckCircle2 size={48} />
+                    <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-5 shadow-sm">
+                      <CheckCircle2 size={40} />
                     </div>
-                    <h3 className="text-3xl font-black text-gray-900 mb-3">Request Verified!</h3>
-                    <p className="text-gray-500 text-lg">Your return label has been generated. Check your email for the next steps.</p>
+                    <span className="bg-emerald-50 text-emerald-700 font-mono text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-200 mb-3">
+                      RMA #{returnInfo?.trackingCode || (returnInfo?.returnId ? String(returnInfo.returnId).substring(0, 8).toUpperCase() : 'PENDING')}
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">Return Request Registered!</h3>
+                    <p className="text-gray-500 text-sm sm:text-base max-w-md mb-6">
+                      Your return request for Order <strong className="text-gray-900">#{returnInfo?.orderNumber || orderNumber}</strong> has been logged in our system. Our support team will verify and dispatch your return shipping label to <strong className="text-gray-900">{email}</strong> within 24 hours.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setIsSubmitted(false);
+                        setOrderNumber('');
+                        setEmail('');
+                        setReturnInfo(null);
+                      }}
+                      className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-full text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+                    >
+                      Submit Another Request
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>

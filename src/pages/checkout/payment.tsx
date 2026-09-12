@@ -12,33 +12,73 @@ import { useGlobalCurrency } from '@/context/CurrencyContext';
 
 export default function PaymentSelectionPage() {
     const router = useRouter();
-    const { orderId } = router.query;
+    const { orderId: queryOrderId, amount: queryAmount } = router.query;
+
+    const [orderId, setOrderId] = useState<string | null>(null);
     const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [orderDetails, setOrderDetails] = useState<any>(null);
+
+    // ⚡ Instant state from sessionStorage or URL query params (Zero delay)
+    const [orderDetails, setOrderDetails] = useState<any>(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('orderId');
+            const amt = urlParams.get('amount');
+            const num = urlParams.get('orderNumber');
+            if (id) {
+                const cached = sessionStorage.getItem(`pendingOrder_${id}`);
+                if (cached) {
+                    try { return JSON.parse(cached); } catch {}
+                }
+                if (amt) {
+                    return { id, total: parseFloat(amt), orderNumber: num || id };
+                }
+            }
+        }
+        return null;
+    });
+
     const [banks, setBankDetails] = useState<any[]>([]);
 
     const { convertPrice, loading: currencyLoading, currency } = useGlobalCurrency();
 
-    // Fetch Order & Bank Details
+    // Sync orderId from query or URL
     useEffect(() => {
-        if (orderId) {
-            fetch(`/api/orders/${orderId}`)
-                .then(res => res.json())
-                .then(data => setOrderDetails(data))
-                .catch(err => console.error("Error fetching order:", err));
+        const id = (queryOrderId as string) || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('orderId') : null);
+        if (id) setOrderId(id);
+    }, [queryOrderId]);
 
-            fetch('/api/settings/bank')
-                .then(res => res.ok ? res.json() : [])
-                .then(data => setBankDetails(Array.isArray(data) ? data : []))
-                .catch(() => setBankDetails([]));
-        }
+    // ⚡ Fetch Order & Bank Details in parallel
+    useEffect(() => {
+        if (!orderId) return;
+
+        // Try restoring from instant sessionStorage
+        try {
+            const cached = sessionStorage.getItem(`pendingOrder_${orderId}`);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (parsed) setOrderDetails(parsed);
+            }
+        } catch {}
+
+        // Parallel background verification
+        Promise.all([
+            fetch(`/api/orders/${orderId}`).then(res => res.ok ? res.json() : null),
+            fetch('/api/settings/bank').then(res => res.ok ? res.json() : [])
+        ]).then(([orderData, bankData]) => {
+            if (orderData) {
+                setOrderDetails(orderData);
+                try {
+                    sessionStorage.setItem(`pendingOrder_${orderId}`, JSON.stringify(orderData));
+                } catch {}
+            }
+            if (Array.isArray(bankData)) setBankDetails(bankData);
+        }).catch(err => console.error("Error fetching order/banks:", err));
     }, [orderId]);
 
     const paymentMethods = [
-        { id: 'upi', name: 'UPI / GPay / PhonePe', desc: 'Instant secure payment via Razorpay', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg', isImage: true },
-        { id: 'card', name: 'Credit / Debit Card', desc: 'Visa, Mastercard, Amex via Stripe', logos: ['https://api.iconify.design/logos:visa.svg', 'https://api.iconify.design/logos:mastercard.svg', 'https://api.iconify.design/logos:amex.svg'], isMultiple: true },
-        { id: 'applepay', name: 'Apple Pay', desc: 'Fast and secure 1-click checkout', logo: 'https://api.iconify.design/logos:apple-pay.svg', isImage: true },
+        { id: 'upi', name: 'UPI / GPay / PhonePe / QR', desc: 'Instant 0-fee payment via Razorpay', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg', isImage: true },
+        { id: 'card', name: 'Credit / Debit Card & NetBanking', desc: 'Visa, Mastercard, RuPay, Amex, NetBanking via Razorpay', logos: ['https://api.iconify.design/logos:visa.svg', 'https://api.iconify.design/logos:mastercard.svg'], isMultiple: true },
         { id: 'bank', name: 'Direct Bank Transfer', desc: 'NEFT/IMPS. Order shipped after clearance', icon: Building2, isImage: false },
         { id: 'cod', name: 'Cash on Delivery', desc: 'Pay safely when you receive the order', icon: Wallet, isImage: false },
     ];
@@ -54,27 +94,13 @@ export default function PaymentSelectionPage() {
                 body: JSON.stringify({ paymentMethod: selectedMethod })
             });
 
-            // 1. STRIPE (Card / Apple Pay)
-            if (selectedMethod === 'card' || selectedMethod === 'applepay') {
-                const stripeResponse = await fetch('/api/checkout/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        amount: orderDetails?.total || 0, // Base USD
-                        orderId,
-                        currency
-                    })
-                });
-                const stripeData = await stripeResponse.json();
-                if (stripeData.url) window.location.href = stripeData.url;
-
-                // 2. RAZORPAY (UPI)
-            } else if (selectedMethod === 'upi') {
+            // 1. RAZORPAY (UPI or Cards/NetBanking)
+            if (selectedMethod === 'upi' || selectedMethod === 'card') {
                 const rzpResponse = await fetch('/api/checkout/razorpay', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        amount: orderDetails?.total || 0, // Base USD
+                        amount: orderDetails?.total || 0,
                         orderId
                     })
                 });
@@ -87,16 +113,51 @@ export default function PaymentSelectionPage() {
                     amount: rzpData.amount,
                     currency: "INR",
                     name: "ShoeStyle Premium",
+                    description: `Order #${orderDetails?.orderNumber || orderId}`,
                     order_id: rzpData.id,
-                    handler: function (response: any) {
-                        router.push(`/checkout/success?orderId=${orderId}&payment_id=${response.razorpay_payment_id}&method=upi`);
+                    prefill: {
+                        name: `${orderDetails?.firstName || ''} ${orderDetails?.lastName || ''}`.trim() || undefined,
+                        email: orderDetails?.email || undefined,
+                        contact: orderDetails?.phone || undefined,
                     },
-                    theme: { color: "#0f172a" }
+                    handler: async function (response: any) {
+                        try {
+                            const verifyResponse = await fetch('/api/checkout/verify', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                    dbOrderId: orderId,
+                                }),
+                            });
+
+                            const verifyResult = await verifyResponse.json();
+
+                            if (verifyResult.success) {
+                                router.push(`/checkout/success?orderId=${orderId}&method=${selectedMethod}`);
+                            } else {
+                                alert("Payment verification failed! Security threat detected.");
+                                setIsProcessing(false);
+                            }
+                        } catch (err) {
+                            console.error("Verification Error:", err);
+                            alert("Something went wrong during payment verification.");
+                            setIsProcessing(false);
+                        }
+                    },
+                    theme: { color: "#000000" },
+                    modal: {
+                        ondismiss: function () {
+                            setIsProcessing(false);
+                        }
+                    }
                 };
                 const rzp = new (window as any).Razorpay(options);
                 rzp.open();
 
-                // 3. BANK TRANSFER & COD
+                // 2. BANK TRANSFER & COD
             } else if (selectedMethod === 'bank') {
                 router.push(`/checkout/success?orderId=${orderId}&method=bank&status=awaiting_payment`);
             } else if (selectedMethod === 'cod') {
@@ -109,11 +170,13 @@ export default function PaymentSelectionPage() {
         }
     };
 
-    if (!orderId) {
+    const activeOrderId = orderId || orderDetails?.id || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('orderId') : null);
+
+    if (!activeOrderId && !router.isReady) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-                <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-                <p className="font-bold text-slate-600 tracking-wider uppercase text-sm">Initializing Secure Portal...</p>
+                <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-3"></div>
+                <p className="font-bold text-slate-600 tracking-wider uppercase text-xs">Securing Checkout...</p>
             </div>
         );
     }
@@ -127,32 +190,32 @@ export default function PaymentSelectionPage() {
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
             <Header />
 
-            <main className="min-h-screen bg-[#F4F7FB] py-10 lg:py-16">
-                <div className="max-w-3xl mx-auto px-4 sm:px-6">
-                    <div className="flex items-center justify-center gap-2 mb-8 bg-emerald-50 w-max mx-auto px-4 py-2 rounded-full border border-emerald-100 shadow-sm">
-                        <LockKeyhole size={16} className="text-emerald-600" strokeWidth={2.5} />
+            <main className="min-h-screen bg-[#F4F7FB] py-6 sm:py-10 lg:py-14">
+                <div className="max-w-2xl mx-auto px-4 w-full">
+                    <div className="flex items-center justify-center gap-2 mb-5 sm:mb-6 bg-emerald-50 w-max mx-auto px-4 py-1.5 rounded-full border border-emerald-100 shadow-sm">
+                        <LockKeyhole size={15} className="text-emerald-600" strokeWidth={2.5} />
                         <span className="font-black tracking-[0.15em] uppercase text-[10px] text-emerald-700">SSL Secure Checkout</span>
                     </div>
 
-                    <div className="bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 overflow-hidden border border-slate-100">
-                        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-black p-10 sm:p-12 text-white text-center relative overflow-hidden">
-                            <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500/20 rounded-full blur-[80px]"></div>
-                            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px]"></div>
+                    <div className="bg-white rounded-[2rem] shadow-2xl shadow-slate-200/60 overflow-hidden border border-slate-100">
+                        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-black py-8 px-6 sm:py-10 text-white text-center relative overflow-hidden">
+                            <div className="absolute -top-24 -right-24 w-60 h-60 bg-blue-500/20 rounded-full blur-[70px]"></div>
+                            <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-[70px]"></div>
 
-                            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-xs mb-4 relative z-10">Amount to Pay</p>
+                            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-xs mb-2.5 relative z-10">Amount to Pay</p>
 
-                            <h1 className="text-5xl sm:text-7xl font-black relative z-10 tracking-tight text-white drop-shadow-xl">
-                                {currencyLoading || !orderDetails ? '...' : convertPrice(orderDetails.total)}
+                            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black relative z-10 tracking-tight text-white drop-shadow-xl">
+                                {currencyLoading || !orderDetails?.total ? '...' : convertPrice(orderDetails.total)}
                             </h1>
 
-                            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-5 py-2 rounded-full mt-6 relative z-10 border border-white/5 shadow-inner">
+                            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full mt-4 sm:mt-5 relative z-10 border border-white/10 shadow-inner">
                                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                                 <p className="text-slate-200 text-xs font-bold tracking-widest uppercase">Order #{String(orderId).substring(0, 8)}</p>
                             </div>
                         </div>
 
-                        <div className="p-6 sm:p-10">
-                            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 uppercase tracking-widest text-center sm:text-left">Select Payment Method</h2>
+                        <div className="p-5 sm:p-7">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 mb-5 uppercase tracking-widest">Select Payment Method</h2>
 
                             <div className="space-y-4">
                                 {paymentMethods.map((method) => {

@@ -33,12 +33,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
         // Agar user nahi mila, ya wo Google/Github se login karta hai (jiska password DB mein nahi hota)
-        if (!user || !user.password) {
+        if (!user || !user.hashedPassword) {
             return res.status(404).json({ message: 'User not found or uses external provider (Google/Github) for login.' });
         }
 
         // 5. Purana password verify karo
-        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.hashedPassword);
         if (!isPasswordValid) {
             return res.status(400).json({ message: 'Incorrect current password! Please try again.' });
         }
@@ -49,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // 7. Database mein naya password update karo
         await prisma.user.update({
             where: { email: session.user.email },
-            data: { password: hashedNewPassword }
+            data: { hashedPassword: hashedNewPassword }
         });
 
         return res.status(200).json({ message: 'Password updated successfully!' });

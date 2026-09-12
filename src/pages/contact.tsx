@@ -8,7 +8,22 @@ import {
   Phone, Mail, MessageCircle, Send, CheckCircle2, Headphones
 } from 'lucide-react';
 
-export default function Contact() {
+import type { GetServerSideProps } from 'next';
+import prisma from '@/lib/prisma';
+
+interface ContactProps {
+  contactData?: {
+    phone: string;
+    email: string;
+    address: string;
+    storeName: string;
+  };
+}
+
+export default function Contact({ contactData }: ContactProps) {
+  const phone = contactData?.phone || '+91 8726540277';
+  const email = contactData?.email || 'solestyle41@gmail.com';
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,6 +32,7 @@ export default function Contact() {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [ticketId, setTicketId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,12 +46,14 @@ export default function Contact() {
         body: JSON.stringify(formData),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
+        setTicketId(data.ticketId || `SS-${Math.floor(100000 + Math.random() * 900000)}`);
         setSubmitted(true);
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-        setTimeout(() => setSubmitted(false), 4000);
       } else {
-        alert('Something went wrong. Please try again.');
+        alert(data.message || 'Something went wrong. Please try again.');
       }
     } catch (error) {
       alert('Network error. Please check your connection.');
@@ -81,8 +99,8 @@ export default function Contact() {
         <section className="max-w-7xl mx-auto px-4 -mt-10 relative z-20">
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: <Phone size={28} />, title: 'Call Us', info: '+91 8726540277', subinfo: 'Mon-Fri, 9am to 6pm IST', bg: 'bg-blue-50', color: 'text-blue-600' },
-              { icon: <Mail size={28} />, title: 'Email Us', info: 'solestyle41@gmail.com', subinfo: 'We reply within 24 hours', bg: 'bg-emerald-50', color: 'text-emerald-600' },
+              { icon: <Phone size={28} />, title: 'Call Us', info: phone, subinfo: 'Mon-Fri, 9am to 6pm IST', bg: 'bg-blue-50', color: 'text-blue-600' },
+              { icon: <Mail size={28} />, title: 'Email Us', info: email, subinfo: 'We reply within 24 hours', bg: 'bg-emerald-50', color: 'text-emerald-600' },
               { icon: <MessageCircle size={28} />, title: 'Live Chat', info: 'Chat with us now', subinfo: 'Available 24/7 for instant help', bg: 'bg-amber-50', color: 'text-amber-600', isChat: true }
             ].map((item, index) => (
               <motion.div
@@ -167,14 +185,40 @@ export default function Contact() {
                   ) : (
                     <motion.div
                       key="success"
-                      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      className="flex flex-col items-center justify-center text-center py-12"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col items-center justify-center text-center py-10 px-4"
                     >
-                      <div className="w-24 h-24 bg-teal-50 text-teal-500 rounded-full flex items-center justify-center mb-6">
-                        <CheckCircle2 size={48} />
+                      <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-emerald-100">
+                        <CheckCircle2 size={40} />
                       </div>
-                      <h3 className="text-3xl font-black text-gray-900 mb-3">Message Sent!</h3>
-                      <p className="text-gray-500 text-lg">Thank you for reaching out. Our support team will get back to you within 24 hours.</p>
+                      <span className="text-[11px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3.5 py-1 rounded-full mb-3">
+                        ✓ Inquiry Dispatched
+                      </span>
+                      <h3 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">
+                        We Have Received Your Message
+                      </h3>
+                      <p className="text-gray-600 text-sm max-w-md mb-6 leading-relaxed">
+                        A confirmation email from <strong className="text-black">ShoeStyle Client Relations</strong> has been dispatched to your inbox.
+                      </p>
+
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 w-full max-w-sm mb-6 text-left">
+                        <div className="flex justify-between items-center text-xs font-bold mb-1">
+                          <span className="text-gray-400 uppercase tracking-wider">Ticket Reference</span>
+                          <span className="font-mono text-black font-black text-sm">#{ticketId}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-500">
+                          <span>Expected Response</span>
+                          <span className="font-bold text-emerald-700">Within 2–4 Hours</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setSubmitted(false)}
+                        className="px-6 py-3 bg-gray-900 hover:bg-black text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md cursor-pointer"
+                      >
+                        Send Another Inquiry
+                      </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -266,3 +310,43 @@ export default function Contact() {
     </Layout>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  try {
+    const storeSettings = await prisma.storeSettings.findFirst();
+    const contactSettings = await prisma.setting.findMany({
+      where: {
+        key: {
+          in: ['contact_phone', 'contact_email', 'store_address'],
+        },
+      },
+    });
+
+    const settingsMap: Record<string, string> = {};
+    contactSettings.forEach((s) => {
+      settingsMap[s.key] = s.value;
+    });
+
+    return {
+      props: {
+        contactData: {
+          phone: settingsMap['contact_phone'] || '+91 8726540277',
+          email: settingsMap['contact_email'] || storeSettings?.contactEmail || 'solestyle41@gmail.com',
+          address: settingsMap['store_address'] || 'D-95, 100 feeta Rd, Enclave Phase 2, Chattarpur, New Delhi, INDIA 110074',
+          storeName: storeSettings?.storeName || 'ShoeStyle',
+        },
+      },
+    };
+  } catch (err) {
+    return {
+      props: {
+        contactData: {
+          phone: '+91 8726540277',
+          email: 'solestyle41@gmail.com',
+          address: 'D-95, 100 feeta Rd, Enclave Phase 2, Chattarpur, New Delhi, INDIA 110074',
+          storeName: 'ShoeStyle',
+        },
+      },
+    };
+  }
+};

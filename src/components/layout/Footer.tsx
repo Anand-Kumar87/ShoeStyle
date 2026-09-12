@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
-  Facebook, 
-  Instagram, 
-  Twitter, 
+import toast from 'react-hot-toast';
+import {
+  Facebook,
+  Instagram,
+  Twitter,
   Youtube,
   Mail,
   Phone,
@@ -22,14 +23,40 @@ const Footer = () => {
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
     setSubscribeStatus('loading');
-    
-    // Simulate API call
-    setTimeout(() => {
-      setSubscribeStatus('success');
-      setEmail('');
+
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSubscribeStatus('success');
+        setEmail('');
+        toast.success('✨ Welcome to ShoeStyle VIP! Check your email for your 10% voucher code.', {
+          duration: 5000,
+          style: { borderRadius: '12px', background: '#000', color: '#fff', fontWeight: 'bold' }
+        });
+        setTimeout(() => setSubscribeStatus('idle'), 4000);
+      } else {
+        setSubscribeStatus('error');
+        toast.error(data.message || 'Subscription failed. Please try again.');
+        setTimeout(() => setSubscribeStatus('idle'), 3000);
+      }
+    } catch (err) {
+      setSubscribeStatus('error');
+      toast.error('Network error. Please check your connection.');
       setTimeout(() => setSubscribeStatus('idle'), 3000);
-    }, 1000);
+    }
   };
 
   return (
@@ -37,7 +64,7 @@ const Footer = () => {
       {/* Main Footer Content */}
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5">
-          
+
           {/* Brand & Description */}
           <div className="lg:col-span-2">
             <Link href="/" className="mb-4 inline-block">
@@ -46,7 +73,7 @@ const Footer = () => {
             <p className="mb-6 max-w-md text-sm leading-relaxed text-neutral-400">
               Your ultimate destination for premium footwear. Discover the latest trends and timeless classics with exceptional quality and style.
             </p>
-            
+
             {/* Contact Info */}
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3">
@@ -182,7 +209,7 @@ const Footer = () => {
                 Get the latest updates on new products and upcoming sales
               </p>
             </div>
-            
+
             <form onSubmit={handleNewsletterSubmit} className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
                 <input
@@ -218,7 +245,7 @@ const Footer = () => {
         {/* Social Media & Payment Methods */}
         <div className="mt-12 border-t border-neutral-800 pt-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            
+
             {/* Social Links */}
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-neutral-400">Follow Us:</span>
@@ -291,22 +318,22 @@ const Footer = () => {
             <p className="text-neutral-500">
               © {new Date().getFullYear()} ShoeStyle. All rights reserved.
             </p>
-            
+
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-              <Link 
-                href="/privacy" 
+              <Link
+                href="/privacy"
                 className="text-neutral-500 hover:text-white transition-colors"
               >
                 Privacy Policy
               </Link>
-              <Link 
-                href="/terms" 
+              <Link
+                href="/terms"
                 className="text-neutral-500 hover:text-white transition-colors"
               >
                 Terms of Service
               </Link>
-              <Link 
-                href="/cookies" 
+              <Link
+                href="/cookies"
                 className="text-neutral-500 hover:text-white transition-colors"
               >
                 Cookie Policy

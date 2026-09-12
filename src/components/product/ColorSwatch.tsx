@@ -30,32 +30,42 @@ const ColorSwatch: React.FC<ColorSwatchProps> = ({
   onColorChange,
 }) => {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
       {colors.map((color) => {
-        const isSelected = selectedColor === color;
+        const isSelected = selectedColor.toLowerCase() === color.toLowerCase();
         const bgColor = colorMap[color.toLowerCase()] || color;
+        const isLight = ['white', 'yellow', 'beige'].includes(color.toLowerCase());
 
         return (
           <button
             key={color}
+            type="button"
             onClick={() => onColorChange(color)}
             className={`
-              relative h-10 w-10 rounded-full border-2 transition-all
-              ${isSelected ? 'border-neutral-900 ring-2 ring-neutral-300 ring-offset-2' : 'border-neutral-300 hover:border-neutral-900'}
+              group flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all cursor-pointer
+              ${isSelected ? 'bg-neutral-100 ring-1 ring-black/20 shadow-xs' : 'hover:bg-neutral-50'}
             `}
-            style={{ backgroundColor: bgColor }}
             aria-label={`Color ${color}`}
             aria-pressed={isSelected}
           >
-            {isSelected && (
-              <Check
-                className={`absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 ${
-                  color.toLowerCase() === 'white' || color.toLowerCase() === 'yellow'
-                    ? 'text-neutral-900'
-                    : 'text-white'
-                }`}
-              />
-            )}
+            <div
+              className={`
+                relative h-8 w-8 rounded-full transition-transform duration-200 group-hover:scale-105 flex items-center justify-center
+                ${isSelected ? 'ring-2 ring-black ring-offset-2 scale-110 shadow-sm' : 'border border-neutral-300 shadow-xs'}
+              `}
+              style={{ backgroundColor: bgColor }}
+            >
+              {isSelected && (
+                <Check
+                  className={`h-4 w-4 ${isLight ? 'text-neutral-900 stroke-[2.5]' : 'text-white stroke-[2.5]'}`}
+                />
+              )}
+            </div>
+            <span className={`text-[10px] font-bold capitalize truncate max-w-full tracking-tight ${
+              isSelected ? 'text-black font-black' : 'text-neutral-500 group-hover:text-neutral-800'
+            }`}>
+              {color}
+            </span>
           </button>
         );
       })}

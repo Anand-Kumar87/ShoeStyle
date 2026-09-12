@@ -3,11 +3,15 @@ import { getSession } from 'next-auth/react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Package, Truck, CheckCircle, Clock, XCircle, ChevronRight, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Package, Truck, CheckCircle, Clock, XCircle, ChevronRight, ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import { useOrders } from '@/hooks/useOrders';
 // 1. Import Global Currency Hook
 import { useGlobalCurrency } from '@/context/CurrencyContext';
+
+import prisma from '@/lib/prisma';
 
 interface OrdersPageProps {
   user: {
@@ -15,11 +19,12 @@ interface OrdersPageProps {
     name: string;
     email: string;
   };
+  initialOrders?: any[];
 }
 
-export default function OrdersPage({ user }: OrdersPageProps) {
+export default function OrdersPage({ user, initialOrders = [] }: OrdersPageProps) {
   const router = useRouter();
-  const { orders, loading, cancelOrder } = useOrders();
+  const { orders, loading, cancelOrder } = useOrders(initialOrders);
 
   // 2. Initialize Currency Hook
   const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
@@ -70,7 +75,7 @@ export default function OrdersPage({ user }: OrdersPageProps) {
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F4F7FB]">
         <div className="text-center">
@@ -88,8 +93,35 @@ export default function OrdersPage({ user }: OrdersPageProps) {
         <meta name="description" content="Track and manage your orders" />
       </Head>
 
-      <main className="min-h-screen bg-[#F4F7FB] py-10 lg:py-16">
+      <Header />
+
+      <main className="min-h-screen bg-[#F4F7FB] py-8 lg:py-12">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* Breadcrumbs & Back Navigation */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Link
+                href="/products"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 shadow-xs transition-all hover:-translate-x-0.5 cursor-pointer"
+              >
+                <ArrowLeft size={14} /> Back to Shop
+              </Link>
+              <Link
+                href="/account"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200 shadow-xs transition-colors cursor-pointer"
+              >
+                Account Dashboard
+              </Link>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-400">
+              <Link href="/" className="hover:text-black transition-colors">Home</Link>
+              <span>/</span>
+              <Link href="/account" className="hover:text-black transition-colors">Account</Link>
+              <span>/</span>
+              <span className="text-slate-900 font-bold">My Orders</span>
+            </div>
+          </div>
 
           {/* Header */}
           <div className="mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -186,6 +218,9 @@ export default function OrdersPage({ user }: OrdersPageProps) {
                           <img
                             src={item.image || '/placeholder.png'}
                             alt={item.name}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder.png';
+                            }}
                             className="w-16 h-16 object-cover rounded-xl bg-slate-50 border border-slate-100 p-1"
                           />
                           <div className="flex-1 min-w-0">
@@ -260,6 +295,8 @@ export default function OrdersPage({ user }: OrdersPageProps) {
           )}
         </div>
       </main>
+
+      <Footer />
     </>
   );
 }
@@ -276,6 +313,51 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
+  let initialOrders: any[] = [];
+  try {
+    let userId = session.user.id;
+    if (!userId && session.user.email) {
+      const u = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true },
+      });
+      if (u) userId = u.id;
+    }
+
+    if (userId) {
+      const rawOrders = await prisma.order.findMany({
+        where: { userId },
+        include: { items: true },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      initialOrders = JSON.parse(JSON.stringify(rawOrders.map(order => {
+        let formattedShippingAddress = (order as any).shippingAddress;
+        if (!formattedShippingAddress || typeof formattedShippingAddress !== 'object') {
+          formattedShippingAddress = {
+            name: `${order.firstName || ''} ${order.lastName || ''}`.trim() || 'Customer',
+            email: order.email || '',
+            phone: order.phone || '',
+            street: `${order.address || ''} ${order.apartment || ''}`.trim(),
+            city: order.city || '',
+            state: order.state || '',
+            zip: order.zipCode || '',
+            country: order.country || 'IN'
+          };
+        }
+        return {
+          ...order,
+          shippingAddress: formattedShippingAddress,
+          paymentStatus: order.paymentStatus || 'PENDING',
+          paymentMethod: order.paymentMethod || 'cod',
+          status: order.status || 'PENDING',
+        };
+      })));
+    }
+  } catch (err) {
+    console.error('SSR fetch orders error:', err);
+  }
+
   return {
     props: {
       user: {
@@ -283,6 +365,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         name: session.user.name || '',
         email: session.user.email || '',
       },
+      initialOrders,
     },
   };
 };

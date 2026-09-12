@@ -1,14 +1,12 @@
-import ColorSwatch from '../product/ColorSwatch';
+import ColorSwatch from '../ColorSwatch';
 
-export default function ColorFilter({ selectedColor, onChange }: any) {
+export default function ColorFilter({ selectedColor, onChange }: { selectedColor: string; onChange: (color: string) => void }) {
     const COLORS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Yellow'];
     return (
-        <div className="flex flex-wrap gap-2">
-            {COLORS.map(color => (
-                <button key={color} onClick={() => onChange(color)} className={selectedColor === color ? 'ring-2 ring-black rounded-full' : ''}>
-                    <ColorSwatch color={color} />
-                </button>
-            ))}
-        </div>
+        <ColorSwatch
+            colors={COLORS}
+            selectedColor={selectedColor}
+            onColorChange={onChange}
+        />
     );
 }

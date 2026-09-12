@@ -28,23 +28,37 @@ export default function Home({ featuredProducts, newArrivals }: HomeProps) {
     setMounted(true);
   }, []);
 
-  // 🔥 Handle Subscribe Form
+  // 🔥 Handle Real Subscribe Form
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email) {
-      toast.error('Bhai, email toh daal!');
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setLoading(true);
 
-    // Fake API call delay (Future mein tum yahan backend API jod sakte ho)
-    setTimeout(() => {
-      toast.success('Welcome to the Movement! 🚀');
-      setEmail('');
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(data.message || 'Welcome to the VIP Circle! Check your email for exclusive drops 🚀');
+        setEmail('');
+      } else {
+        toast.error(data.message || 'Subscription failed. Please try again.');
+      }
+    } catch {
+      toast.error('Could not connect. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -210,9 +224,31 @@ export default function Home({ featuredProducts, newArrivals }: HomeProps) {
 }
 
 export const getStaticProps: GetStaticProps = async () => {
+  const productCardSelect = {
+    id: true,
+    name: true,
+    slug: true,
+    brand: true,
+    price: true,
+    compareAtPrice: true,
+    isSale: true,
+    salePrice: true,
+    image: true,
+    category: true,
+    colors: true,
+    sizes: true,
+    stock: true,
+    isNew: true,
+    isFeatured: true,
+    rating: true,
+    reviewCount: true,
+    createdAt: true,
+  };
+
   // 1. Fetch Most Wanted (Featured)
   let featuredProducts = await prisma.product.findMany({
     where: { isFeatured: true, isActive: true },
+    select: productCardSelect,
     take: 8,
     orderBy: { createdAt: 'desc' }
   });
@@ -224,6 +260,7 @@ export const getStaticProps: GetStaticProps = async () => {
         isActive: true,
         id: { notIn: featuredProducts.map(p => p.id) }
       },
+      select: productCardSelect,
       take: 8 - featuredProducts.length,
       orderBy: { createdAt: 'desc' }
     });
@@ -234,6 +271,7 @@ export const getStaticProps: GetStaticProps = async () => {
   // 2. Fetch New Arrivals
   const newArrivals = await prisma.product.findMany({
     where: { isActive: true },
+    select: productCardSelect,
     take: 8,
     orderBy: { createdAt: 'desc' }
   });

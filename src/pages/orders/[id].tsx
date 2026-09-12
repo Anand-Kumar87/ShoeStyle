@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Package, Truck, CheckCircle, MapPin, CreditCard, Clock, CalendarDays, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 // 1. Import Global Currency Hook
 import { useGlobalCurrency } from '@/context/CurrencyContext';
 
@@ -118,6 +120,8 @@ export default function OrderDetailPage({ user }: OrderDetailPageProps) {
       <Head>
         <title>Order #{order?.orderNumber || 'Details'} - ShoeStyle Premium</title>
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-[#F4F7FB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
@@ -253,6 +257,9 @@ export default function OrderDetailPage({ user }: OrderDetailPageProps) {
                           <img
                             src={item.image}
                             alt={item?.name || 'Product'}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder.png';
+                            }}
                             className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl shadow-sm bg-white border border-slate-100 p-1"
                           />
                         ) : (
@@ -380,6 +387,8 @@ export default function OrderDetailPage({ user }: OrderDetailPageProps) {
           </div>
         </div>
       </div>
+
+      <Footer />
     </>
   );
 }

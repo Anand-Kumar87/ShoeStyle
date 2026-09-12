@@ -32,3 +32,6 @@ coverage/
 
 # Misc
 *.pem
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+scratch_*

@@ -1,13 +1,19 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import { authLimiter } from '@/lib/rateLimit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  // Rate limiting check (max 5 requests per minute per IP)
+  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'anonymous';
+  const isAllowed = await authLimiter.check(res, 5, clientIp);
+  if (!isAllowed) {
+    return res.status(429).json({ message: 'Too many requests. Please try again in a minute.' });
   }
 
   const { email } = req.body;

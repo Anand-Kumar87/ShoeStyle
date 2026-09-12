@@ -17,16 +17,29 @@ interface CartItemProps {
 const CartItem: React.FC<CartItemProps> = ({ item, onUpdateQuantity, onRemove }) => {
   // 👈 2. Initialize hook
   const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
+  const [imgSrc, setImgSrc] = React.useState<string>(item.image || '/placeholder.png');
+
+  // Keep imgSrc updated if item changes
+  React.useEffect(() => {
+    if (item.image) {
+      setImgSrc(item.image);
+    }
+  }, [item.image]);
+
+  const productUrl = item.slug ? `/products/${item.slug}` : `/products`;
 
   return (
     <div className="flex gap-4 rounded-lg border border-neutral-200 p-4">
       {/* Image */}
-      <Link href={`/products/${item.slug}`} className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+      <Link href={productUrl} className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100">
         <Image
-          src={item.image}
+          src={imgSrc}
           alt={item.name}
           fill
           className="object-cover"
+          onError={() => setImgSrc('/placeholder.png')}
+          unoptimized={typeof imgSrc === 'string' && imgSrc.startsWith('http')}
+          sizes="96px"
         />
       </Link>
 

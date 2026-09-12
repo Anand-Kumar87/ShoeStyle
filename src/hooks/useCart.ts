@@ -37,7 +37,7 @@ export const useCart = create<CartStore>()(
         if (existingItem) {
           updatedItems = items.map((item) =>
             item.id === existingItem.id
-              ? { ...item, quantity: item.quantity + newItem.quantity }
+              ? { ...item, price: newItem.price, quantity: item.quantity + newItem.quantity }
               : item
           );
           toast.success('Quantity updated in cart!');

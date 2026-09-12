@@ -1,753 +1,1203 @@
 import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion'; // 🔥 Premium Animations
-import toast, { Toaster } from 'react-hot-toast'; // 🔥 Premium Notifications
+import { motion, AnimatePresence } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast';
 import {
-    FiUser, FiShoppingBag, FiHeart, FiMapPin, FiSettings,
-    FiLogOut, FiEdit3, FiCheck, FiX, FiPackage,
-    FiTruck, FiCheckCircle, FiClock, FiChevronRight,
-    FiPlus, FiEdit2, FiTrash2, FiLock
+  FiUser, FiShoppingBag, FiHeart, FiMapPin, FiSettings,
+  FiLogOut, FiEdit3, FiCheck, FiX, FiPackage,
+  FiTruck, FiCheckCircle, FiClock, FiChevronRight,
+  FiPlus, FiEdit2, FiTrash2, FiLock, FiArrowLeft, FiHome,
+  FiShield, FiAward, FiCopy
 } from 'react-icons/fi';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { useOrders } from '@/hooks/useOrders';
 import { useWishlist } from '@/hooks/useWishlist';
+import prisma from '@/lib/prisma';
 
 interface AccountPageProps {
-    user: {
-        id: string;
-        name: string;
-        email: string;
-        role: string;
-    };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  initialAddresses?: any[];
 }
 
-export default function AccountPage({ user }: AccountPageProps) {
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState('profile');
+export default function AccountPage({ user, initialAddresses = [] }: AccountPageProps) {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('profile');
 
-    // Profile States
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [formData, setFormData] = useState({
-        name: user.name || '',
-        email: user.email || '',
-    });
+  // Profile States
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user.name || '',
+    email: user.email || '',
+  });
 
-    // Address States
-    const [addresses, setAddresses] = useState<any[]>([]);
-    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-    const [addressForm, setAddressForm] = useState({
-        id: '', name: '', street: '', city: '', state: '', zip: '', country: '', phone: ''
-    });
+  // Address States
+  const [addresses, setAddresses] = useState<any[]>(initialAddresses);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [isDeletingAddressId, setIsDeletingAddressId] = useState<string | null>(null);
+  const [addressForm, setAddressForm] = useState({
+    id: '', name: '', street: '', city: '', state: '', zip: '', country: '', phone: ''
+  });
 
-    // 🔥 NEW: Password Change States
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-    const [isChangingPassword, setIsChangingPassword] = useState(false);
-    const [passwordForm, setPasswordForm] = useState({
-        currentPassword: '', newPassword: '', confirmPassword: ''
-    });
+  // Client-side address loader fallback
+  useEffect(() => {
+    if (activeTab === 'addresses' && addresses.length === 0) {
+      fetch('/api/user/addresses')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            setAddresses(data);
+          }
+        })
+        .catch(err => console.error('Failed to load addresses:', err));
+    }
+  }, [activeTab]);
 
-    const { orders, loading: ordersLoading } = useOrders();
-    const { wishlist, loading: wishlistLoading } = useWishlist();
+  // Password Change States
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '', newPassword: '', confirmPassword: ''
+  });
 
-    const handleLogout = async () => {
-        await signOut({ redirect: false });
-        router.push('/');
-    };
+  const { orders, loading: ordersLoading } = useOrders();
+  const { wishlist, loading: wishlistLoading } = useWishlist();
 
-    // Profile Handlers
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            const response = await fetch('/api/user/update', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
+    router.push('/');
+  };
 
-            if (response.ok) {
-                setIsEditing(false);
-                toast.success('Profile updated successfully! ✨');
-                router.reload();
-            } else {
-                const data = await response.json();
-                toast.error(data.message || 'Failed to update profile');
-            }
-        } catch (error) {
-            toast.error('An error occurred while updating profile');
-        } finally {
-            setIsSaving(false);
-        }
-    };
+  // Profile Handlers
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/user/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-    const handleCancel = () => {
-        setFormData({ name: user.name || '', email: user.email || '' });
+      if (response.ok) {
         setIsEditing(false);
-    };
+        toast.success('Profile updated successfully! ✨', {
+          style: { borderRadius: '12px', background: '#000', color: '#fff', fontWeight: 'bold' }
+        });
+        router.reload();
+      } else {
+        const data = await response.json();
+        toast.error(data.message || 'Failed to update profile');
+      }
+    } catch (error) {
+      toast.error('An error occurred while updating profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-    // Address Handlers
-    const handleOpenAddressModal = (addressToEdit: any = null) => {
-        if (addressToEdit) setAddressForm(addressToEdit);
-        else setAddressForm({ id: '', name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' });
-        setIsAddressModalOpen(true);
-    };
+  const handleCancel = () => {
+    setFormData({ name: user.name || '', email: user.email || '' });
+    setIsEditing(false);
+  };
 
-    const handleSaveAddress = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (addressForm.id) {
-            setAddresses(addresses.map(a => a.id === addressForm.id ? addressForm : a));
-            toast.success('Address updated!');
-        } else {
-            setAddresses([...addresses, { ...addressForm, id: Date.now().toString() }]);
-            toast.success('New address added!');
-        }
-        setIsAddressModalOpen(false);
-    };
+  // Address Handlers - Connected to PostgreSQL Database
+  const handleOpenAddressModal = (addressToEdit: any = null) => {
+    if (addressToEdit) {
+      setAddressForm({
+        id: addressToEdit.id || '',
+        name: addressToEdit.name || `${addressToEdit.firstName || ''} ${addressToEdit.lastName || ''}`.trim(),
+        street: addressToEdit.street || '',
+        city: addressToEdit.city || '',
+        state: addressToEdit.state || '',
+        zip: addressToEdit.zipCode || addressToEdit.zip || '',
+        country: addressToEdit.country || 'India',
+        phone: addressToEdit.phone || '',
+      });
+    } else {
+      setAddressForm({
+        id: '',
+        name: user.name || '',
+        street: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: 'India',
+        phone: '',
+      });
+    }
+    setIsAddressModalOpen(true);
+  };
 
-    const handleDeleteAddress = (id: string) => {
-        setAddresses(addresses.filter(a => a.id !== id));
-        toast.success('Address deleted');
-    };
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingAddress(true);
+    try {
+      const isEditing = Boolean(addressForm.id);
+      const url = isEditing ? `/api/user/addresses/${addressForm.id}` : '/api/user/addresses';
+      const method = isEditing ? 'PUT' : 'POST';
 
-    // 🔥 NEW: Password Handlers
-    const handleOpenPasswordModal = () => {
-        if (user.role === 'admin') {
-            toast.error('Access Denied: Admin passwords cannot be modified here.', {
-                icon: '🛑',
-                style: { borderRadius: '10px', background: '#333', color: '#fff' }
-            });
-            return;
-        }
-        setIsPasswordModalOpen(true);
-    };
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addressForm),
+      });
 
-    const handlePasswordSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to save address to database');
+      }
 
-        // Double check admin logic block
-        if (user.role === 'admin') {
-            toast.error('Admin Access Denied!');
-            setIsPasswordModalOpen(false);
-            return;
-        }
+      if (isEditing) {
+        setAddresses(prev => prev.map(a => a.id === data.id ? data : a));
+        toast.success('Address updated successfully in database! 📍', {
+          style: { borderRadius: '12px', background: '#000', color: '#fff', fontWeight: 'bold' }
+        });
+      } else {
+        setAddresses(prev => [data, ...prev]);
+        toast.success('New delivery address saved securely to database! 📍', {
+          style: { borderRadius: '12px', background: '#000', color: '#fff', fontWeight: 'bold' }
+        });
+      }
 
-        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            toast.error('New passwords do not match!');
-            return;
-        }
+      setIsAddressModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Error saving address');
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
 
-        setIsChangingPassword(true);
-        try {
-            // NOTE: Make sure you have this backend API route created
-            const res = await fetch('/api/user/change-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    currentPassword: passwordForm.currentPassword,
-                    newPassword: passwordForm.newPassword
-                })
-            });
-            const data = await res.json();
+  const handleDeleteAddress = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this delivery residence?')) return;
+    setIsDeletingAddressId(id);
+    try {
+      const res = await fetch(`/api/user/addresses/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to delete address');
+      }
 
-            if (res.ok) {
-                toast.success('Password updated securely! 🚀');
-                setIsPasswordModalOpen(false);
-                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            } else {
-                toast.error(data.message || 'Incorrect current password');
-            }
-        } catch (err) {
-            toast.error('Something went wrong!');
-        } finally {
-            setIsChangingPassword(false);
-        }
-    };
+      setAddresses(prev => prev.filter(a => a.id !== id));
+      toast.success('Address removed from database');
+    } catch (err: any) {
+      toast.error(err.message || 'Error deleting address');
+    } finally {
+      setIsDeletingAddressId(null);
+    }
+  };
 
-    const menuItems = [
-        { id: 'profile', label: 'Profile', icon: FiUser, color: 'from-blue-500 to-blue-600' },
-        { id: 'orders', label: 'Orders', icon: FiShoppingBag, color: 'from-purple-500 to-purple-600' },
-        { id: 'wishlist', label: 'Wishlist', icon: FiHeart, color: 'from-pink-500 to-pink-600' },
-        { id: 'addresses', label: 'Addresses', icon: FiMapPin, color: 'from-green-500 to-green-600' },
-        { id: 'settings', label: 'Settings', icon: FiSettings, color: 'from-orange-500 to-orange-600' },
-    ];
+  const handleSetDefaultAddress = async (id: string) => {
+    try {
+      const res = await fetch(`/api/user/addresses/${id}`, {
+        method: 'PATCH',
+      });
+      if (res.ok) {
+        setAddresses(prev => prev.map(a => ({ ...a, isDefault: a.id === id })));
+        toast.success('Primary delivery residence updated! 🌟');
+      }
+    } catch (err) {
+      toast.error('Failed to update primary residence');
+    }
+  };
 
-    const orderStats = {
-        total: orders?.length || 0,
-        pending: orders?.filter((o: any) => o.status === 'PENDING' || o.status === 'CONFIRMED').length || 0,
-        inTransit: orders?.filter((o: any) => o.status === 'PROCESSING' || o.status === 'SHIPPED').length || 0,
-        delivered: orders?.filter((o: any) => o.status === 'DELIVERED').length || 0,
-    };
+  // Password Handlers
+  const handleOpenPasswordModal = () => {
+    if (user.role?.toLowerCase() === 'admin') {
+      toast.error('Access Denied: Admin passwords cannot be modified from customer portal.', {
+        icon: '🛑',
+        style: { borderRadius: '12px', background: '#111', color: '#fff', fontWeight: 'bold' }
+      });
+      return;
+    }
+    setIsPasswordModalOpen(true);
+  };
 
-    const stats = [
-        { label: 'Total Orders', value: orderStats.total.toString(), icon: FiPackage, color: 'bg-gradient-to-br from-blue-500 to-blue-600' },
-        { label: 'In Transit', value: orderStats.inTransit.toString(), icon: FiTruck, color: 'bg-gradient-to-br from-purple-500 to-purple-600' },
-        { label: 'Delivered', value: orderStats.delivered.toString(), icon: FiCheckCircle, color: 'bg-gradient-to-br from-green-500 to-green-600' },
-        { label: 'Pending', value: orderStats.pending.toString(), icon: FiClock, color: 'bg-gradient-to-br from-orange-500 to-orange-600' },
-    ];
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-            case 'CONFIRMED': return 'bg-blue-100 text-blue-800';
-            case 'PROCESSING': return 'bg-purple-100 text-purple-800';
-            case 'SHIPPED': return 'bg-indigo-100 text-indigo-800';
-            case 'DELIVERED': return 'bg-green-100 text-green-800';
-            case 'CANCELLED': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    };
+    if (user.role?.toLowerCase() === 'admin') {
+      toast.error('Admin Access Denied!');
+      setIsPasswordModalOpen(false);
+      return;
+    }
 
-    // Framer Motion Variants for smooth Tab Switching
-    const tabVariants = {
-        hidden: { opacity: 0, y: 15 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
-        exit: { opacity: 0, y: -10, transition: { duration: 0.2 } }
-    };
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New passwords do not match!');
+      return;
+    }
 
-    return (
-        <>
-            <Head>
-                <title>My Account - ShoeStyle</title>
-                <meta name="description" content="Manage your account settings and orders" />
-            </Head>
+    setIsChangingPassword(true);
+    try {
+      const res = await fetch('/api/user/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+      const data = await res.json();
 
-            <Toaster position="top-center" reverseOrder={false} />
+      if (res.ok) {
+        toast.success('Password updated securely! 🚀', {
+          style: { borderRadius: '12px', background: '#000', color: '#fff', fontWeight: 'bold' }
+        });
+        setIsPasswordModalOpen(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        toast.error(data.message || 'Incorrect current password');
+      }
+    } catch (err) {
+      toast.error('Something went wrong!');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  const copyEmail = () => {
+    if (user.email) {
+      navigator.clipboard.writeText(user.email);
+      toast.success('Email copied to clipboard!');
+    }
+  };
 
-                    {/* Header with Gradient */}
-                    <div className="mb-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-                            className="bg-gradient-to-r from-gray-900 via-gray-800 to-black rounded-3xl p-8 text-white shadow-2xl"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h1 className="text-4xl font-black mb-2 tracking-tight">Welcome back, {user.name?.split(' ')[0] || 'User'}! 👋</h1>
-                                    <p className="text-gray-300 text-lg font-medium">Manage your account and track your orders</p>
-                                </div>
-                                <div className="hidden md:block">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold shadow-lg ring-4 ring-white/10">
-                                        {user.name?.charAt(0).toUpperCase() || 'U'}
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
+  const menuItems = [
+    { id: 'profile', label: 'Profile Dossier', icon: FiUser },
+    { id: 'orders', label: 'Acquisitions & Orders', icon: FiShoppingBag },
+    { id: 'wishlist', label: 'Curated Wishlist', icon: FiHeart },
+    { id: 'addresses', label: 'Delivery Residences', icon: FiMapPin },
+    { id: 'settings', label: 'Security & Preferences', icon: FiSettings },
+  ];
 
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        {stats.map((stat, index) => {
-                            const Icon = stat.icon;
-                            return (
-                                <motion.div
-                                    key={index}
-                                    initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.1 }}
-                                    className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer"
-                                    onClick={() => stat.label.includes('Order') && setActiveTab('orders')}
-                                >
-                                    <div className={`${stat.color} p-6 text-white h-full`}>
-                                        <Icon className="text-3xl mb-3 opacity-90" />
-                                        <p className="text-sm font-bold tracking-wider uppercase opacity-90">{stat.label}</p>
-                                        <p className="text-4xl font-black mt-1 tracking-tight">{stat.value}</p>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>
+  const orderStats = {
+    total: orders?.length || 0,
+    pending: orders?.filter((o: any) => o.status === 'PENDING' || o.status === 'CONFIRMED').length || 0,
+    inTransit: orders?.filter((o: any) => o.status === 'PROCESSING' || o.status === 'SHIPPED').length || 0,
+    delivered: orders?.filter((o: any) => o.status === 'DELIVERED').length || 0,
+  };
 
-                    {/* Main Content Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        {/* Sidebar Navigation */}
-                        <div className="lg:col-span-1">
-                            <div className="bg-white rounded-3xl shadow-xl p-5 sticky top-8">
-                                <div className="space-y-2">
-                                    {menuItems.map((item) => {
-                                        const Icon = item.icon;
-                                        const isActive = activeTab === item.id;
-                                        return (
-                                            <button
-                                                key={item.id}
-                                                onClick={() => setActiveTab(item.id)}
-                                                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-bold transition-all duration-300 group ${isActive
-                                                        ? 'bg-gray-900 text-white shadow-lg shadow-gray-900/20 translate-x-2'
-                                                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                                                    }`}
-                                            >
-                                                <div className={`p-2.5 rounded-xl transition-colors ${isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
-                                                    <Icon className={`text-xl ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                                                </div>
-                                                <span className="tracking-wide">{item.label}</span>
+  const stats = [
+    { label: 'Total Acquisitions', value: orderStats.total.toString(), sub: 'Lifetime orders', icon: FiPackage },
+    { label: 'In Transit', value: orderStats.inTransit.toString(), sub: 'Active deliveries', icon: FiTruck },
+    { label: 'Delivered', value: orderStats.delivered.toString(), sub: 'Fulfilled orders', icon: FiCheckCircle },
+    { label: 'Pending Dispatch', value: orderStats.pending.toString(), sub: 'Processing at atelier', icon: FiClock },
+  ];
 
-                                                {item.id === 'orders' && orders?.length > 0 && (
-                                                    <span className="ml-auto bg-blue-500 text-white text-xs font-black rounded-full px-2.5 py-1">
-                                                        {orders.length}
-                                                    </span>
-                                                )}
-                                                {item.id === 'wishlist' && wishlist?.length > 0 && (
-                                                    <span className="ml-auto bg-pink-500 text-white text-xs font-black rounded-full px-2.5 py-1">
-                                                        {wishlist.length}
-                                                    </span>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                    <div className="pt-4 mt-4 border-t border-gray-100">
-                                        <button
-                                            onClick={handleLogout}
-                                            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-red-500 hover:bg-red-50 transition-all duration-300 font-bold group"
-                                        >
-                                            <div className="p-2.5 rounded-xl bg-red-50 group-hover:bg-red-100 transition-colors">
-                                                <FiLogOut className="text-xl" />
-                                            </div>
-                                            <span className="tracking-wide">Logout</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full">Pending</span>;
+      case 'CONFIRMED':
+        return <span className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full">Confirmed</span>;
+      case 'PROCESSING':
+      case 'SHIPPED':
+        return <span className="bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full">In Transit</span>;
+      case 'DELIVERED':
+        return <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full">Delivered</span>;
+      case 'CANCELLED':
+        return <span className="bg-red-50 text-red-800 border border-red-200 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full">Cancelled</span>;
+      default:
+        return <span className="bg-neutral-100 text-neutral-800 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full">{status}</span>;
+    }
+  };
 
-                        {/* Content Area with AnimatePresence */}
-                        <div className="lg:col-span-3">
-                            <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 min-h-[500px]">
-                                <AnimatePresence mode="wait">
+  const tabVariants = {
+    hidden: { opacity: 0, y: 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+    exit: { opacity: 0, y: -8, transition: { duration: 0.15 } }
+  };
 
-                                    {/* Profile Tab */}
-                                    {activeTab === 'profile' && (
-                                        <motion.div key="profile" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
-                                            <div className="flex items-center justify-between mb-8">
-                                                <div>
-                                                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Profile Information</h2>
-                                                    <p className="text-gray-500 mt-1 font-medium">Update your personal details</p>
-                                                </div>
-                                                {!isEditing && (
-                                                    <button
-                                                        onClick={() => setIsEditing(true)}
-                                                        className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                                    >
-                                                        <FiEdit3 /> Edit Profile
-                                                    </button>
-                                                )}
-                                            </div>
+  const isUserAdmin = user.role?.toLowerCase() === 'admin';
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                {/* Name Field */}
-                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Full Name</label>
-                                                    {isEditing ? (
-                                                        <input
-                                                            type="text"
-                                                            value={formData.name}
-                                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                            className="w-full px-4 py-3 border-2 border-gray-200 text-gray-900 font-semibold rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                                                        />
-                                                    ) : (
-                                                        <div className="text-xl font-bold text-gray-900">{user.name || 'Not provided'}</div>
-                                                    )}
-                                                </div>
+  return (
+    <>
+      <Head>
+        <title>Private Client Account — ShoeStyle</title>
+        <meta name="description" content="Manage your ShoeStyle private client account and acquisitions" />
+      </Head>
 
-                                                {/* Email Field */}
-                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Email Address</label>
-                                                    {isEditing ? (
-                                                        <input
-                                                            type="email"
-                                                            value={formData.email}
-                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                            className="w-full px-4 py-3 border-2 border-gray-200 text-gray-900 font-semibold rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                                                        />
-                                                    ) : (
-                                                        <div className="text-xl font-bold text-gray-900">{user.email}</div>
-                                                    )}
-                                                </div>
+      <Toaster position="top-center" reverseOrder={false} />
 
-                                                {/* Account Type */}
-                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Account Type</label>
-                                                    <div className="flex items-center">
-                                                        <span className={`px-4 py-1.5 rounded-full text-xs font-black tracking-wider ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                                                            }`}>
-                                                            {user.role?.toUpperCase() || 'USER'}
-                                                        </span>
-                                                    </div>
-                                                </div>
+      <Header />
 
-                                                {/* Member Since */}
-                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Member Since</label>
-                                                    <div className="text-xl font-bold text-gray-900">
-                                                        {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                                                    </div>
-                                                </div>
-                                            </div>
+      <div className="min-h-screen bg-[#FBFBFB] text-neutral-900 pb-24 font-['Inter',sans-serif]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
 
-                                            {isEditing && (
-                                                <div className="flex gap-4 mt-8 pt-6 border-t border-gray-100">
-                                                    <button
-                                                        onClick={handleSave}
-                                                        disabled={isSaving}
-                                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition-all font-bold text-lg"
-                                                    >
-                                                        <FiCheck className="text-xl" /> {isSaving ? 'Saving...' : 'Save Changes'}
-                                                    </button>
-                                                    <button
-                                                        onClick={handleCancel}
-                                                        disabled={isSaving}
-                                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-bold text-lg"
-                                                    >
-                                                        <FiX className="text-xl" /> Cancel
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </motion.div>
-                                    )}
+          {/* Top Bar: Breadcrumb Navigation & Back Button */}
+          <div className="flex items-center justify-between gap-4 mb-8">
+            <button
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white border border-neutral-200/90 text-neutral-800 text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white hover:border-black shadow-sm transition-all group cursor-pointer"
+            >
+              <FiArrowLeft className="text-sm group-hover:-translate-x-1 transition-transform" />
+              <span>Return</span>
+            </button>
 
-                                    {/* Orders Tab */}
-                                    {activeTab === 'orders' && (
-                                        <motion.div key="orders" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
-                                            {/* Purana Orders logic with updated styling */}
-                                            <div className="flex items-center justify-between mb-8">
-                                                <div>
-                                                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Order History</h2>
-                                                    <p className="text-gray-500 mt-1 font-medium">Track and manage your orders</p>
-                                                </div>
-                                                {orders?.length > 0 && (
-                                                    <Link href="/orders" className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold">
-                                                        View All <FiChevronRight />
-                                                    </Link>
-                                                )}
-                                            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white border border-neutral-200/80 text-neutral-700 text-xs font-bold hover:bg-neutral-100 transition-all shadow-sm"
+              >
+                <FiHome className="text-xs" />
+                <span>Store</span>
+              </Link>
+              <Link
+                href="/products"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-black text-white text-xs font-black uppercase tracking-wider hover:bg-neutral-800 transition-all shadow-sm"
+              >
+                <span>Browse Catalog</span>
+              </Link>
+            </div>
+          </div>
 
-                                            {ordersLoading ? (
-                                                <div className="text-center py-12">
-                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-900 mx-auto mb-4"></div>
-                                                </div>
-                                            ) : orders?.length === 0 ? (
-                                                <div className="text-center py-16 bg-gray-50 rounded-3xl border border-gray-100">
-                                                    <FiShoppingBag className="text-6xl text-gray-300 mx-auto mb-4" />
-                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">No orders yet</h3>
-                                                    <p className="text-gray-500 mb-8 font-medium">Start shopping to see your orders here</p>
-                                                    <button onClick={() => router.push('/products')} className="px-8 py-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-lg">
-                                                        Start Shopping
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-4">
-                                                    {orders?.slice(0, 5).map((order: any) => (
-                                                        <div key={order.id} className="p-6 bg-white border-2 border-gray-100 rounded-2xl hover:border-gray-200 transition-colors">
-                                                            <div className="flex items-center justify-between mb-4">
-                                                                <div>
-                                                                    <p className="font-black text-gray-900 text-lg tracking-tight">Order #{order.orderNumber}</p>
-                                                                    <p className="text-sm text-gray-500 font-medium mt-1">
-                                                                        {new Date(order.createdAt).toLocaleDateString()} • {order.items?.length || 0} items
-                                                                    </p>
-                                                                </div>
-                                                                <div className="text-right">
-                                                                    <p className="font-black text-gray-900 text-xl">${order.total.toFixed(2)}</p>
-                                                                    <span className={`text-xs px-3 py-1 rounded-full font-black tracking-wider inline-block mt-2 ${getStatusColor(order.status)}`}>
-                                                                        {order.status}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <Link href={`/orders/${order.id}`} className="w-full py-3 bg-gray-50 text-gray-900 rounded-xl hover:bg-gray-100 transition-colors font-bold flex items-center justify-center gap-2">
-                                                                View Details <FiChevronRight />
-                                                            </Link>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </motion.div>
-                                    )}
+          {/* 🔥 5-LAKH FLAGSHIP OBSIDIAN HERO BANNER */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="relative bg-[#0b0f17] text-white rounded-[2.5rem] p-8 sm:p-12 shadow-[0_25px_60px_rgba(0,0,0,0.35)] overflow-hidden mb-10 border border-neutral-800/80"
+          >
+            {/* Ambient Radial Highlights */}
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                                    {/* Wishlist Tab */}
-                                    {activeTab === 'wishlist' && (
-                                        <motion.div key="wishlist" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
-                                            {/* Wishlist Logic mapped properly */}
-                                            <div className="flex items-center justify-between mb-8">
-                                                <div>
-                                                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">My Wishlist</h2>
-                                                    <p className="text-gray-500 mt-1 font-medium">Your saved favorite items</p>
-                                                </div>
-                                            </div>
-
-                                            {wishlistLoading ? (
-                                                <div className="text-center py-12">
-                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-900 mx-auto mb-4"></div>
-                                                </div>
-                                            ) : wishlist?.length === 0 ? (
-                                                <div className="text-center py-16 bg-gray-50 rounded-3xl border border-gray-100">
-                                                    <FiHeart className="text-6xl text-gray-300 mx-auto mb-4" />
-                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">Your wishlist is empty</h3>
-                                                    <button onClick={() => router.push('/products')} className="mt-6 px-8 py-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-lg">
-                                                        Browse Products
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {wishlist?.slice(0, 6).map((item: any) => (
-                                                        <div key={item.id} className="p-4 bg-white border-2 border-gray-100 rounded-2xl hover:border-gray-200 transition-colors flex gap-4 items-center">
-                                                            <img src={item.product?.image || ''} alt="Product" className="w-20 h-20 object-cover rounded-xl bg-gray-50 mix-blend-multiply" />
-                                                            <div className="flex-1">
-                                                                <h4 className="font-bold text-gray-900 line-clamp-1 tracking-tight">{item.product?.name}</h4>
-                                                                <p className="text-lg font-black text-gray-900 mt-1">${item.product?.price}</p>
-                                                                <Link href={`/products/${item.product?.slug || ''}`}>
-                                                                    <button className="text-xs font-black tracking-widest uppercase text-blue-600 hover:text-blue-700 mt-2">
-                                                                        View Product →
-                                                                    </button>
-                                                                </Link>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </motion.div>
-                                    )}
-
-                                    {/* Addresses Tab */}
-                                    {activeTab === 'addresses' && (
-                                        <motion.div key="addresses" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
-                                            <div className="flex items-center justify-between mb-8">
-                                                <h2 className="text-3xl font-black text-gray-900 tracking-tight">Saved Addresses</h2>
-                                                {addresses.length > 0 && (
-                                                    <button onClick={() => handleOpenAddressModal()} className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold">
-                                                        <FiPlus /> Add New
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            {addresses.length === 0 ? (
-                                                <div className="text-center py-16 bg-gray-50 rounded-3xl border border-gray-100">
-                                                    <FiMapPin className="text-6xl text-gray-300 mx-auto mb-4" />
-                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">No saved addresses</h3>
-                                                    <button onClick={() => handleOpenAddressModal()} className="mt-6 px-8 py-4 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-lg">
-                                                        Add New Address
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    {addresses.map((address) => (
-                                                        <div key={address.id} className="border-2 border-gray-100 rounded-2xl p-6 bg-white hover:border-gray-200 transition-colors relative group">
-                                                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button onClick={() => handleOpenAddressModal(address)} className="p-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200"><FiEdit2 size={16} /></button>
-                                                                <button onClick={() => handleDeleteAddress(address.id)} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100"><FiTrash2 size={16} /></button>
-                                                            </div>
-                                                            <h4 className="font-black text-lg text-gray-900 mb-2">{address.name}</h4>
-                                                            <p className="text-gray-600 font-medium">{address.street}</p>
-                                                            <p className="text-gray-600 font-medium">{address.city}, {address.state} {address.zip}</p>
-                                                            <p className="text-gray-600 font-medium">{address.country}</p>
-                                                            <p className="text-gray-900 font-bold mt-3 flex items-center gap-2">📞 {address.phone}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </motion.div>
-                                    )}
-
-                                    {/* Settings Tab - 🔥 UPDATED FOR PASSWORD */}
-                                    {activeTab === 'settings' && (
-                                        <motion.div key="settings" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
-                                            <h2 className="text-3xl font-black text-gray-900 mb-8 tracking-tight">Account Settings</h2>
-
-                                            <div className="space-y-6">
-                                                {/* 🔥 Functional Password Section */}
-                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                                    <div className="flex items-center gap-3 mb-3">
-                                                        <FiLock className="text-2xl text-gray-900" />
-                                                        <label className="block text-xl font-black text-gray-900">
-                                                            Password & Security
-                                                        </label>
-                                                    </div>
-                                                    <p className="text-gray-600 mb-6 font-medium">Update your password to keep your account secure. Admin access restricted.</p>
-                                                    <button
-                                                        onClick={handleOpenPasswordModal}
-                                                        className="px-8 py-3.5 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-bold shadow-md"
-                                                    >
-                                                        Change Password
-                                                    </button>
-                                                </div>
-
-                                                {/* Notifications Section */}
-                                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                                    <label className="block text-xl font-black text-gray-900 mb-6">
-                                                        Notifications
-                                                    </label>
-                                                    <div className="space-y-5">
-                                                        {[
-                                                            { title: 'Order Updates', desc: 'Get notified about your order status', default: true },
-                                                            { title: 'Promotions & Offers', desc: 'Receive exclusive deals and discounts', default: true },
-                                                            { title: 'Newsletter', desc: 'Weekly updates on new arrivals', default: false }
-                                                        ].map((notif, idx) => (
-                                                            <label key={idx} className="flex items-center gap-4 cursor-pointer group p-3 hover:bg-white rounded-xl transition-colors">
-                                                                <input type="checkbox" defaultChecked={notif.default} className="w-5 h-5 text-gray-900 rounded focus:ring-2 focus:ring-gray-900 border-gray-300" />
-                                                                <div>
-                                                                    <p className="font-bold text-gray-900">{notif.title}</p>
-                                                                    <p className="text-sm font-medium text-gray-500">{notif.desc}</p>
-                                                                </div>
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* Danger Zone */}
-                                                <div className="bg-red-50 p-6 rounded-2xl border-2 border-red-100">
-                                                    <label className="block text-xl font-black text-red-600 mb-3">
-                                                        ⚠️ Danger Zone
-                                                    </label>
-                                                    <p className="text-red-800/70 mb-6 font-medium">Once you delete your account, there is no going back. Please be certain.</p>
-                                                    <button className="px-8 py-3.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-bold shadow-md shadow-red-200">
-                                                        Delete Account
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        </div>
-                    </div>
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-400/20 to-amber-300/10 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-[0.2em] px-3.5 py-1 rounded-full backdrop-blur-md">
+                    <FiAward size={12} /> {isUserAdmin ? 'CHIEF ADMINISTRATOR' : 'SHOESTYLE NOIR PRIVÉ'}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 text-neutral-400 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                    <FiShield size={11} className="text-emerald-400" /> Verified Member
+                  </span>
                 </div>
+
+                <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
+                  Welcome, {user.name?.split(' ')[0] || 'Client'}
+                </h1>
+                <p className="text-neutral-400 text-sm sm:text-base font-medium max-w-xl leading-relaxed">
+                  Your private portal for bespoke footwear acquisitions, real-time dispatch tracking, and personal styling preferences.
+                </p>
+              </div>
+
+              {/* Monogram Avatar */}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-neutral-800 to-neutral-900 border-2 border-white/15 shadow-2xl flex items-center justify-center text-3xl sm:text-4xl font-black text-white tracking-tight">
+                    {user.name?.charAt(0).toUpperCase() || 'S'}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#0b0f17] flex items-center justify-center text-[10px] text-white">
+                    ✓
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* 🔥 LUXURY MONOCHROME METRIC CARDS */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
+            {stats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.08 }}
+                  onClick={() => setActiveTab('orders')}
+                  className="bg-white rounded-3xl p-6 border border-neutral-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_16px_40px_rgb(0,0,0,0.08)] hover:border-black transition-all duration-300 group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-400 group-hover:text-black transition-colors">
+                      {stat.label}
+                    </span>
+                    <div className="w-9 h-9 rounded-2xl bg-neutral-100 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors text-neutral-700">
+                      <Icon size={16} />
+                    </div>
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-black text-neutral-900 tracking-tight">
+                    {stat.value}
+                  </div>
+                  <p className="text-[11px] font-medium text-neutral-400 mt-1">
+                    {stat.sub}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* MAIN GRID: SIDEBAR TABS & CONTENT */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+            {/* Sidebar Navigation */}
+            <div className="lg:col-span-4 sticky top-24">
+              <div className="bg-white rounded-[2rem] p-4 border border-neutral-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] space-y-1.5">
+                <div className="px-4 py-3 border-b border-neutral-100 mb-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                    Client Menu
+                  </p>
+                  <p className="text-xs font-bold text-neutral-900 truncate mt-0.5">
+                    {user.email}
+                  </p>
+                </div>
+
+                {menuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                        isActive
+                          ? 'bg-neutral-900 text-white shadow-lg shadow-black/15 translate-x-1'
+                          : 'text-neutral-600 hover:bg-neutral-100 hover:text-black'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${isActive ? 'bg-white/15 text-white' : 'bg-neutral-100 text-neutral-700'}`}>
+                          <Icon size={15} />
+                        </div>
+                        <span>{item.label}</span>
+                      </div>
+
+                      {item.id === 'orders' && orders?.length > 0 && (
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? 'bg-white text-black' : 'bg-neutral-200 text-neutral-800'}`}>
+                          {orders.length}
+                        </span>
+                      )}
+                      {item.id === 'wishlist' && wishlist?.length > 0 && (
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? 'bg-white text-black' : 'bg-neutral-200 text-neutral-800'}`}>
+                          {wishlist.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* Admin Quick Jump if Role is ADMIN */}
+                {isUserAdmin && (
+                  <Link
+                    href="/admin"
+                    className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider text-blue-600 bg-blue-50/70 hover:bg-blue-100 transition-colors cursor-pointer border border-blue-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-blue-100 text-blue-700">
+                        <FiShield size={15} />
+                      </div>
+                      <span>Admin Headquarters</span>
+                    </div>
+                    <FiChevronRight size={14} />
+                  </Link>
+                )}
+
+                {/* Logout Button */}
+                <div className="pt-3 border-t border-neutral-100">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    <div className="p-2 rounded-xl bg-red-50 text-red-600">
+                      <FiLogOut size={15} />
+                    </div>
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Address Modal */}
-            <AnimatePresence>
-                {isAddressModalOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-                            className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden"
-                        >
-                            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-                                    {addressForm.id ? 'Edit Address' : 'Add New Address'}
-                                </h3>
-                                <button onClick={() => setIsAddressModalOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 rounded-full hover:bg-gray-200">
-                                    <FiX size={24} />
-                                </button>
-                            </div>
-                            <form onSubmit={handleSaveAddress} className="p-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Name</label>
-                                        <input required type="text" value={addressForm.name} onChange={e => setAddressForm({ ...addressForm, name: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="John Doe" />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Street Address</label>
-                                        <input required type="text" value={addressForm.street} onChange={e => setAddressForm({ ...addressForm, street: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="123 Main St" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">City</label>
-                                        <input required type="text" value={addressForm.city} onChange={e => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="New York" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">State / Province</label>
-                                        <input required type="text" value={addressForm.state} onChange={e => setAddressForm({ ...addressForm, state: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="NY" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">ZIP / Postal</label>
-                                        <input required type="text" value={addressForm.zip} onChange={e => setAddressForm({ ...addressForm, zip: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="10001" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Country</label>
-                                        <input required type="text" value={addressForm.country} onChange={e => setAddressForm({ ...addressForm, country: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="United States" />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
-                                        <input required type="tel" value={addressForm.phone} onChange={e => setAddressForm({ ...addressForm, phone: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="+1 (555) 000-0000" />
-                                    </div>
-                                </div>
-                                <div className="mt-8 flex gap-4">
-                                    <button type="button" onClick={() => setIsAddressModalOpen(false)} className="flex-1 py-4 bg-gray-100 text-gray-900 font-bold rounded-xl hover:bg-gray-200 transition-colors">
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="flex-1 py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg">
-                                        Save Address
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Content Area */}
+            <div className="lg:col-span-8">
+              <div className="bg-white rounded-[2.5rem] p-6 sm:p-10 border border-neutral-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] min-h-[550px]">
+                <AnimatePresence mode="wait">
 
-            {/* 🔥 NEW: Password Modal */}
-            <AnimatePresence>
-                {isPasswordModalOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-                            className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden"
-                        >
-                            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-                                    Change Password
-                                </h3>
-                                <button onClick={() => setIsPasswordModalOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 rounded-full hover:bg-gray-200">
-                                    <FiX size={24} />
-                                </button>
+                  {/* 1. PROFILE TAB */}
+                  {activeTab === 'profile' && (
+                    <motion.div key="profile" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                      <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                            Personal Credentials
+                          </span>
+                          <h2 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight uppercase mt-1">
+                            Profile Information
+                          </h2>
+                        </div>
+                        {!isEditing && (
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black text-white text-xs font-black uppercase tracking-wider hover:bg-neutral-800 transition-all shadow-sm cursor-pointer"
+                          >
+                            <FiEdit3 size={14} />
+                            <span>Edit Profile</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
+                        {/* Name */}
+                        <div className="bg-neutral-50/70 p-6 rounded-2xl border border-neutral-100">
+                          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-2">
+                            Full Legal Name
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={formData.name}
+                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                              className="w-full px-4 py-3 bg-white border border-neutral-300 text-neutral-900 font-bold rounded-xl focus:border-black outline-none transition-all"
+                            />
+                          ) : (
+                            <div className="text-lg font-black text-neutral-900 tracking-tight">
+                              {user.name || 'Not provided'}
                             </div>
-                            <form onSubmit={handlePasswordSubmit} className="p-8">
-                                <div className="space-y-5">
-                                    <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Current Password</label>
-                                        <input required type="password" value={passwordForm.currentPassword} onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="••••••••" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">New Password</label>
-                                        <input required type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="••••••••" minLength={6} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Confirm New Password</label>
-                                        <input required type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 outline-none font-semibold" placeholder="••••••••" minLength={6} />
-                                    </div>
-                                </div>
-                                <div className="mt-8 flex gap-4">
-                                    <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="flex-1 py-4 bg-gray-100 text-gray-900 font-bold rounded-xl hover:bg-gray-200 transition-colors">
-                                        Cancel
-                                    </button>
-                                    <button type="submit" disabled={isChangingPassword} className="flex-1 py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg disabled:opacity-50">
-                                        {isChangingPassword ? 'Updating...' : 'Update'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
+                          )}
+                        </div>
+
+                        {/* Email */}
+                        <div className="bg-neutral-50/70 p-6 rounded-2xl border border-neutral-100 relative">
+                          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-2">
+                            Email Address
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="email"
+                              value={formData.email}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                              className="w-full px-4 py-3 bg-white border border-neutral-300 text-neutral-900 font-bold rounded-xl focus:border-black outline-none transition-all"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className="text-base sm:text-lg font-black text-neutral-900 tracking-tight truncate">
+                                {user.email}
+                              </span>
+                              <button
+                                onClick={copyEmail}
+                                className="p-2 text-neutral-400 hover:text-black rounded-lg transition-colors cursor-pointer"
+                                title="Copy Email"
+                              >
+                                <FiCopy size={15} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Account Tier */}
+                        <div className="bg-neutral-50/70 p-6 rounded-2xl border border-neutral-100">
+                          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-2">
+                            Membership Status
+                          </label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                              isUserAdmin ? 'bg-purple-100 text-purple-900' : 'bg-amber-100 text-amber-900'
+                            }`}>
+                              {isUserAdmin ? '★ Super Administrator' : '★ Noir Privé Member'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Client Since */}
+                        <div className="bg-neutral-50/70 p-6 rounded-2xl border border-neutral-100">
+                          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-2">
+                            Member Established
+                          </label>
+                          <div className="text-lg font-black text-neutral-900 tracking-tight">
+                            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Editing Actions */}
+                      {isEditing && (
+                        <div className="flex gap-4 pt-4 border-t border-neutral-100">
+                          <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="flex-1 inline-flex items-center justify-center gap-2 py-4 bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+                          >
+                            <FiCheck size={16} /> {isSaving ? 'Saving...' : 'Save Updates'}
+                          </button>
+                          <button
+                            onClick={handleCancel}
+                            disabled={isSaving}
+                            className="flex-1 inline-flex items-center justify-center gap-2 py-4 bg-neutral-100 text-neutral-800 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-neutral-200 transition-all cursor-pointer"
+                          >
+                            <FiX size={16} /> Cancel
+                          </button>
+                        </div>
+                      )}
+
+                      {/* VIP Client Privileges Card */}
+                      <div className="mt-8 p-6 rounded-3xl bg-neutral-900 text-white border border-neutral-800">
+                        <div className="flex items-center gap-2 text-amber-300 text-[10px] font-black uppercase tracking-[0.2em] mb-2">
+                          <FiAward size={14} /> Noir Privé Privileges
+                        </div>
+                        <h4 className="text-lg font-black tracking-tight uppercase mb-3">
+                          Complimentary Luxury Services
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-neutral-300">
+                          <div>
+                            <p className="font-bold text-white mb-0.5">Express Logistics</p>
+                            <p className="text-neutral-400 text-[11px]">Free insured door delivery across India.</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-white mb-0.5">Showroom Holds</p>
+                            <p className="text-neutral-400 text-[11px]">48-hour reserve on limited drops.</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-white mb-0.5">Private Concierge</p>
+                            <p className="text-neutral-400 text-[11px]">Dedicated advisor for fit and sizing.</p>
+                          </div>
+                        </div>
+                      </div>
                     </motion.div>
-                )}
-            </AnimatePresence>
-        </>
-    );
+                  )}
+
+                  {/* 2. ORDERS TAB */}
+                  {activeTab === 'orders' && (
+                    <motion.div key="orders" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                      <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                            Acquisitions Dossier
+                          </span>
+                          <h2 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight uppercase mt-1">
+                            Order History
+                          </h2>
+                        </div>
+                        {orders?.length > 0 && (
+                          <Link
+                            href="/orders"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-100 text-neutral-900 text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-all cursor-pointer"
+                          >
+                            <span>Full Dossier</span>
+                            <FiChevronRight size={14} />
+                          </Link>
+                        )}
+                      </div>
+
+                      {ordersLoading ? (
+                        <div className="text-center py-16">
+                          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black mx-auto mb-4" />
+                          <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Loading acquisitions...</p>
+                        </div>
+                      ) : orders?.length === 0 ? (
+                        <div className="text-center py-20 bg-neutral-50 rounded-3xl border border-neutral-100">
+                          <FiShoppingBag className="text-5xl text-neutral-300 mx-auto mb-4" />
+                          <h3 className="text-xl font-black text-neutral-900 uppercase mb-2">No Acquisitions Yet</h3>
+                          <p className="text-neutral-500 text-xs font-medium mb-6">Discover handcrafted footwear and limited editions in our catalog.</p>
+                          <Link
+                            href="/products"
+                            className="inline-flex items-center gap-2 px-8 py-3.5 bg-black text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md"
+                          >
+                            Explore Collections
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {orders?.slice(0, 8).map((order: any) => (
+                            <div
+                              key={order.id}
+                              className="p-6 bg-white border border-neutral-200/90 rounded-3xl hover:border-black hover:shadow-lg transition-all duration-300"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                                <div>
+                                  <div className="flex items-center gap-3">
+                                    <p className="font-black text-neutral-900 text-lg tracking-tight">
+                                      Order #{order.orderNumber}
+                                    </p>
+                                    {getStatusBadge(order.status)}
+                                  </div>
+                                  <p className="text-xs text-neutral-500 font-medium mt-1">
+                                    Placed on {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} • {order.items?.length || 0} pair(s)
+                                  </p>
+                                </div>
+                                <div className="text-left sm:text-right">
+                                  <p className="font-black text-neutral-900 text-2xl tracking-tight">
+                                    ₹{order.total?.toLocaleString('en-IN')}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="pt-4 border-t border-neutral-100 flex items-center justify-between">
+                                <span className="text-xs text-neutral-500 font-medium">
+                                  Payment: <strong className="text-neutral-800">{order.paymentMethod || 'Razorpay Online'}</strong>
+                                </span>
+                                <Link
+                                  href={`/orders/${order.id}`}
+                                  className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider text-black hover:text-neutral-600 transition-colors"
+                                >
+                                  <span>View Order Dossier</span>
+                                  <FiChevronRight size={14} />
+                                </Link>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* 3. WISHLIST TAB */}
+                  {activeTab === 'wishlist' && (
+                    <motion.div key="wishlist" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                      <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                            Curated Favorites
+                          </span>
+                          <h2 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight uppercase mt-1">
+                            My Wishlist
+                          </h2>
+                        </div>
+                        <Link
+                          href="/wishlist"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-100 text-neutral-900 text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-all cursor-pointer"
+                        >
+                          <span>Full Wishlist</span>
+                          <FiChevronRight size={14} />
+                        </Link>
+                      </div>
+
+                      {wishlistLoading ? (
+                        <div className="text-center py-16">
+                          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black mx-auto mb-4" />
+                          <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Loading saved items...</p>
+                        </div>
+                      ) : wishlist?.length === 0 ? (
+                        <div className="text-center py-20 bg-neutral-50 rounded-3xl border border-neutral-100">
+                          <FiHeart className="text-5xl text-neutral-300 mx-auto mb-4" />
+                          <h3 className="text-xl font-black text-neutral-900 uppercase mb-2">Your Wishlist is Empty</h3>
+                          <p className="text-neutral-500 text-xs font-medium mb-6">Save your dream sneakers to track their releases and price updates.</p>
+                          <Link
+                            href="/products"
+                            className="inline-flex items-center gap-2 px-8 py-3.5 bg-black text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md"
+                          >
+                            Explore Shoes
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {wishlist?.slice(0, 6).map((item: any) => (
+                            <div
+                              key={item.id}
+                              className="p-4 bg-white border border-neutral-200/90 rounded-3xl hover:border-black transition-all flex gap-4 items-center group"
+                            >
+                              <div className="w-20 h-20 bg-neutral-50 rounded-2xl flex items-center justify-center p-2 flex-shrink-0 border border-neutral-100">
+                                <img
+                                  src={item.product?.image || '/placeholder.png'}
+                                  alt={item.product?.name}
+                                  className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-neutral-900 text-sm line-clamp-1 tracking-tight">
+                                  {item.product?.name}
+                                </h4>
+                                <p className="text-base font-black text-neutral-900 mt-1">
+                                  ₹{item.product?.price?.toLocaleString('en-IN')}
+                                </p>
+                                <Link
+                                  href={`/products/${item.product?.slug || ''}`}
+                                  className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-neutral-900 hover:text-blue-600 mt-2 transition-colors"
+                                >
+                                  <span>View Item</span>
+                                  <FiChevronRight size={12} />
+                                </Link>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* 4. ADDRESSES TAB */}
+                  {activeTab === 'addresses' && (
+                    <motion.div key="addresses" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                      <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                            Shipping Locations
+                          </span>
+                          <h2 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight uppercase mt-1">
+                            Delivery Residences
+                          </h2>
+                        </div>
+                        {addresses.length > 0 && (
+                          <button
+                            onClick={() => handleOpenAddressModal()}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black text-white text-xs font-black uppercase tracking-wider hover:bg-neutral-800 transition-all shadow-sm cursor-pointer"
+                          >
+                            <FiPlus size={14} />
+                            <span>Add Address</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {addresses.length === 0 ? (
+                        <div className="text-center py-20 bg-neutral-50 rounded-3xl border border-neutral-100">
+                          <FiMapPin className="text-5xl text-neutral-300 mx-auto mb-4" />
+                          <h3 className="text-xl font-black text-neutral-900 uppercase mb-2">No Delivery Residences Saved</h3>
+                          <p className="text-neutral-500 text-xs font-medium mb-6">Store your home or office address for seamless 1-click acquisitions.</p>
+                          <button
+                            onClick={() => handleOpenAddressModal()}
+                            className="inline-flex items-center gap-2 px-8 py-3.5 bg-black text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md cursor-pointer"
+                          >
+                            <FiPlus size={14} />
+                            <span>Add New Address</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                          {addresses.map((address) => (
+                            <div
+                              key={address.id}
+                              className="border border-neutral-200/90 rounded-3xl p-6 bg-white hover:border-black transition-all relative group"
+                            >
+                              <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleOpenAddressModal(address)}
+                                  className="p-2 bg-neutral-100 text-neutral-700 rounded-xl hover:bg-neutral-200 transition-colors cursor-pointer"
+                                  title="Edit"
+                                >
+                                  <FiEdit2 size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteAddress(address.id)}
+                                  disabled={isDeletingAddressId === address.id}
+                                  className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Delete"
+                                >
+                                  {isDeletingAddressId === address.id ? (
+                                    <span className="w-3.5 h-3.5 border-2 border-red-600 border-t-transparent rounded-full animate-spin block" />
+                                  ) : (
+                                    <FiTrash2 size={14} />
+                                  )}
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                                  address.isDefault ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-800'
+                                }`}>
+                                  {address.isDefault ? '⭐ Primary Residence' : 'Standard Residence'}
+                                </span>
+                                {!address.isDefault && (
+                                  <button
+                                    onClick={() => handleSetDefaultAddress(address.id)}
+                                    className="text-[10px] font-bold text-neutral-400 hover:text-black transition-colors underline cursor-pointer"
+                                  >
+                                    Set as Primary
+                                  </button>
+                                )}
+                              </div>
+                              <h4 className="font-black text-lg text-neutral-900 tracking-tight mb-1">
+                                {address.name}
+                              </h4>
+                              <p className="text-neutral-600 text-xs font-medium leading-relaxed">
+                                {address.street} {address.apartment ? `, ${address.apartment}` : ''}
+                              </p>
+                              <p className="text-neutral-600 text-xs font-medium">
+                                {address.city}, {address.state} {address.zip || address.zipCode}
+                              </p>
+                              <p className="text-neutral-600 text-xs font-medium">
+                                {address.country}
+                              </p>
+                              <p className="text-neutral-900 font-bold text-xs mt-3 flex items-center gap-1.5">
+                                <span>📞</span> {address.phone}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* 5. SETTINGS TAB */}
+                  {activeTab === 'settings' && (
+                    <motion.div key="settings" variants={tabVariants} initial="hidden" animate="visible" exit="exit">
+                      <div className="mb-8 pb-6 border-b border-neutral-100">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                          Security & Account
+                        </span>
+                        <h2 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight uppercase mt-1">
+                          Account Settings
+                        </h2>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* Password Section */}
+                        <div className="bg-neutral-50/70 p-6 rounded-3xl border border-neutral-200/80">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-8 h-8 rounded-xl bg-black text-white flex items-center justify-center">
+                              <FiLock size={15} />
+                            </div>
+                            <h3 className="text-base font-black uppercase tracking-tight text-neutral-900">
+                              Authentication & Password
+                            </h3>
+                          </div>
+                          <p className="text-neutral-500 text-xs font-medium mb-5 leading-relaxed max-w-lg">
+                            Regularly refresh your credentials to preserve highest tier security. Admin credentials are protected via backend protocol.
+                          </p>
+                          <button
+                            onClick={handleOpenPasswordModal}
+                            className="px-6 py-3 bg-black text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md cursor-pointer"
+                          >
+                            Update Password
+                          </button>
+                        </div>
+
+                        {/* Notifications */}
+                        <div className="bg-neutral-50/70 p-6 rounded-3xl border border-neutral-200/80">
+                          <h3 className="text-base font-black uppercase tracking-tight text-neutral-900 mb-4">
+                            Client Preferences
+                          </h3>
+                          <div className="space-y-3">
+                            {[
+                              { title: 'Acquisition & Logistics Dispatches', desc: 'Real-time SMS and email updates regarding shipment transit', default: true },
+                              { title: 'Private Sales & VIP Drop Access', desc: 'Private 24-hour advance invitations to exclusive sneaker drops', default: true },
+                              { title: 'Weekly Curated Lookbook', desc: 'Editorially styled footwear roundups and seasonal selections', default: false }
+                            ].map((notif, idx) => (
+                              <label key={idx} className="flex items-start gap-4 p-3 hover:bg-white rounded-2xl transition-colors cursor-pointer border border-transparent hover:border-neutral-100">
+                                <input
+                                  type="checkbox"
+                                  defaultChecked={notif.default}
+                                  className="mt-1 w-4 h-4 text-black rounded focus:ring-black border-neutral-300"
+                                />
+                                <div>
+                                  <p className="font-bold text-xs text-neutral-900">{notif.title}</p>
+                                  <p className="text-[11px] font-medium text-neutral-500 mt-0.5">{notif.desc}</p>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Danger Zone */}
+                        <div className="bg-red-50/40 p-6 rounded-3xl border border-red-200/60">
+                          <h3 className="text-base font-black uppercase tracking-tight text-red-600 mb-2">
+                            Account Termination
+                          </h3>
+                          <p className="text-red-900/70 text-xs font-medium mb-5 max-w-lg">
+                            Closing your account will permanently eradicate your order history, saved addresses, and VIP tier membership.
+                          </p>
+                          <button className="px-6 py-3 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-sm cursor-pointer">
+                            Request Account Deletion
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Address Modal */}
+      <AnimatePresence>
+        {isAddressModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-neutral-100"
+            >
+              <div className="px-8 py-5 border-b border-neutral-100 flex justify-between items-center bg-neutral-50">
+                <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">
+                  {addressForm.id ? 'Edit Residence' : 'Add New Delivery Address'}
+                </h3>
+                <button
+                  onClick={() => setIsAddressModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-500 hover:text-black flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+              <form onSubmit={handleSaveAddress} className="p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">Recipient Full Name</label>
+                    <input required type="text" value={addressForm.name} onChange={e => setAddressForm({ ...addressForm, name: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="John Doe" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">Street Address</label>
+                    <input required type="text" value={addressForm.street} onChange={e => setAddressForm({ ...addressForm, street: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="123 Luxury Boulevard" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">City</label>
+                    <input required type="text" value={addressForm.city} onChange={e => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="New Delhi" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">State</label>
+                    <input required type="text" value={addressForm.state} onChange={e => setAddressForm({ ...addressForm, state: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="Delhi" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">Postal Code</label>
+                    <input required type="text" value={addressForm.zip} onChange={e => setAddressForm({ ...addressForm, zip: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="110074" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">Country</label>
+                    <input required type="text" value={addressForm.country} onChange={e => setAddressForm({ ...addressForm, country: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="India" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">Mobile Contact</label>
+                    <input required type="tel" value={addressForm.phone} onChange={e => setAddressForm({ ...addressForm, phone: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="+91 98765 43210" />
+                  </div>
+                </div>
+                <div className="mt-8 flex gap-3">
+                  <button type="button" onClick={() => setIsAddressModalOpen(false)} className="flex-1 py-3.5 bg-neutral-100 text-neutral-800 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-neutral-200 transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingAddress}
+                    className="flex-1 py-3.5 bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-neutral-800 transition-colors shadow-md disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isSavingAddress ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving Address...</span>
+                      </>
+                    ) : (
+                      <span>Save Residence</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Password Modal */}
+      <AnimatePresence>
+        {isPasswordModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-neutral-100"
+            >
+              <div className="px-8 py-5 border-b border-neutral-100 flex justify-between items-center bg-neutral-50">
+                <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">
+                  Update Security Password
+                </h3>
+                <button
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-500 hover:text-black flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+              <form onSubmit={handlePasswordSubmit} className="p-8 space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">Current Password</label>
+                  <input required type="password" value={passwordForm.currentPassword} onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="••••••••" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">New Password</label>
+                  <input required type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="••••••••" minLength={6} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">Confirm New Password</label>
+                  <input required type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:border-black outline-none font-bold text-sm" placeholder="••••••••" minLength={6} />
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="flex-1 py-3.5 bg-neutral-100 text-neutral-800 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-neutral-200 transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={isChangingPassword} className="flex-1 py-3.5 bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-neutral-800 transition-colors shadow-md disabled:opacity-50 cursor-pointer">
+                    {isChangingPassword ? 'Updating...' : 'Save Password'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Footer />
+    </>
+  );
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-    const session = await getSession(context);
+  const session = await getSession(context);
 
-    if (!session || !session.user) {
-        return {
-            redirect: {
-                destination: '/auth/signin?callbackUrl=/account',
-                permanent: false,
-            },
-        };
-    }
-
+  if (!session || !session.user) {
     return {
-        props: {
-            user: {
-                id: session.user.id || '',
-                name: session.user.name || '',
-                email: session.user.email || '',
-                role: session.user.role || 'user',
-            },
-        },
+      redirect: {
+        destination: '/auth/signin?callbackUrl=/account',
+        permanent: false,
+      },
     };
+  }
+
+  let initialAddresses: any[] = [];
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email || '' },
+      select: { id: true },
+    });
+
+    if (user) {
+      const dbAddresses = await prisma.userAddress.findMany({
+        where: { userId: user.id },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      });
+
+      initialAddresses = dbAddresses.map((a) => ({
+        id: a.id,
+        name: `${a.firstName} ${a.lastName}`.trim() || 'Resident',
+        firstName: a.firstName,
+        lastName: a.lastName,
+        street: a.street,
+        apartment: a.apartment || '',
+        city: a.city,
+        state: a.state,
+        zip: a.zipCode,
+        zipCode: a.zipCode,
+        country: a.country || 'India',
+        phone: a.phone,
+        type: a.type,
+        isDefault: a.isDefault,
+        createdAt: a.createdAt.toISOString(),
+      }));
+    }
+  } catch (err) {
+    console.error('Error loading user addresses in getServerSideProps:', err);
+  }
+
+  return {
+    props: {
+      user: {
+        id: session.user.id || '',
+        name: session.user.name || '',
+        email: session.user.email || '',
+        role: session.user.role || 'user',
+      },
+      initialAddresses: JSON.parse(JSON.stringify(initialAddresses)),
+    },
+  };
 };

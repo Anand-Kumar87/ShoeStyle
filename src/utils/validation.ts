@@ -8,9 +8,43 @@ export const validatePhone = (phone: string): boolean => {
   return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10;
 };
 
-export const validateZipCode = (zipCode: string): boolean => {
-  const zipRegex = /^\d{5}(-\d{4})?$/;
-  return zipRegex.test(zipCode);
+export const validateZipCode = (zipCode: string, countryCode: string = 'IN'): boolean => {
+  if (!zipCode || typeof zipCode !== 'string') return false;
+  const trimmed = zipCode.trim();
+  const country = (countryCode || 'IN').toUpperCase();
+
+  // 🇮🇳 India PIN Code: Exactly 6 digits, cannot start with 0 (e.g. 271313, 110001)
+  if (country === 'IN') {
+    return /^[1-9][0-9]{5}$/.test(trimmed);
+  }
+
+  // 🇺🇸 United States: 5 digits or 5+4 (e.g. 90210 or 90210-1234)
+  if (country === 'US') {
+    return /^\d{5}(-\d{4})?$/.test(trimmed);
+  }
+
+  // 🇬🇧 United Kingdom
+  if (country === 'GB' || country === 'UK') {
+    return /^[A-Z]{1,2}[0-9][A-Z0-9]?\s?[0-9][A-Z]{2}$/i.test(trimmed);
+  }
+
+  // 🇨🇦 Canada (e.g. K1A 0B1)
+  if (country === 'CA') {
+    return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(trimmed);
+  }
+
+  // 🇦🇺 Australia (4 digits)
+  if (country === 'AU') {
+    return /^\d{4}$/.test(trimmed);
+  }
+
+  // 🇦🇪 UAE (often 00000 or N/A or custom, allow 2-10 chars)
+  if (country === 'AE') {
+    return trimmed.length >= 2;
+  }
+
+  // Worldwide general postal codes (3 to 10 alphanumeric characters)
+  return /^[A-Za-z0-9\s\-]{3,10}$/.test(trimmed);
 };
 
 export const validatePassword = (password: string): {

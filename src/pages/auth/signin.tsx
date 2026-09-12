@@ -23,19 +23,20 @@ export default function SignInPage() {
 
     try {
       const result = await signIn('credentials', {
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError('Incorrect email or password. Please try again.');
+        setError('Incorrect email or password. Please check your credentials.');
+        setIsLoading(false);
       } else {
-        router.push('/');
+        const callbackUrl = (router.query.callbackUrl as string) || '/';
+        window.location.href = callbackUrl;
       }
     } catch (error) {
       setError('A network error occurred. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -141,6 +142,8 @@ export default function SignInPage() {
                   </div>
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="hello@shoestyle.com"
@@ -163,6 +166,8 @@ export default function SignInPage() {
                   </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    autoComplete="current-password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="••••••••"
@@ -194,7 +199,10 @@ export default function SignInPage() {
 
             <p className="mt-6 text-center text-xs font-medium text-gray-500 relative z-10">
               Don't have an account?{' '}
-              <Link href="/auth/signup" className="text-gray-900 font-bold hover:text-orange-500 transition-colors">
+              <Link
+                href={`/auth/signup${router.query.callbackUrl ? `?callbackUrl=${encodeURIComponent(router.query.callbackUrl as string)}` : ''}`}
+                className="text-gray-900 font-bold hover:text-orange-500 transition-colors"
+              >
                 Create one now
               </Link>
             </p>

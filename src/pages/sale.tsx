@@ -17,14 +17,29 @@ export default function Sale() {
   const [mounted, setMounted] = useState(false);
 
   // =====================================
+  // =====================================
   // 1. FETCH PRODUCTS FROM DATABASE
   // =====================================
   useEffect(() => {
     fetch('/api/products')
       .then(res => res.json())
       .then(data => {
-        setProducts(Array.isArray(data) ? data : []);
+        const prodList = Array.isArray(data) ? data : [];
+        setProducts(prodList);
         setLoading(false);
+
+        // 🔥 Auto-revive Sale if admin added any product to sale!
+        const hasSaleItems = prodList.some((p: any) => p.isSale === true && p.salePrice && p.price > p.salePrice);
+        if (hasSaleItems) {
+          const storedEndTime = localStorage.getItem('shoeStoreSaleEndTime');
+          const now = Date.now();
+          if (!storedEndTime || parseInt(storedEndTime, 10) <= now) {
+            // Restart fresh 48-hour flash sale countdown
+            const freshTarget = now + (48 * 60 * 60 * 1000);
+            localStorage.setItem('shoeStoreSaleEndTime', freshTarget.toString());
+          }
+          setIsSaleActive(true);
+        }
       })
       .catch(err => {
         console.error("Error fetching products:", err);
@@ -39,22 +54,36 @@ export default function Sale() {
     setMounted(true); // Next.js Hydration Fix
 
     let endTime = localStorage.getItem('shoeStoreSaleEndTime');
-    if (!endTime) {
-      // 48 Hours Timer set karo agar pehli baar visit kar raha hai
-      const targetTime = new Date().getTime() + (48 * 60 * 60 * 1000);
+    const now = Date.now();
+
+    if (!endTime || parseInt(endTime, 10) <= now) {
+      // 48 Hours Timer set karo
+      const targetTime = now + (48 * 60 * 60 * 1000);
       localStorage.setItem('shoeStoreSaleEndTime', targetTime.toString());
       endTime = targetTime.toString();
+      setIsSaleActive(true);
     }
 
     const timer = setInterval(() => {
-      const now = new Date().getTime();
-      const distance = parseInt(endTime!) - now;
+      const currentTime = Date.now();
+      const currentStoredEnd = localStorage.getItem('shoeStoreSaleEndTime');
+      const targetEnd = currentStoredEnd ? parseInt(currentStoredEnd, 10) : parseInt(endTime!, 10);
+      const distance = targetEnd - currentTime;
 
       if (distance <= 0) {
-        clearInterval(timer);
-        setIsSaleActive(false); // Hide sale products when time is 0
-        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+        // If products are on sale in database, automatically renew sale
+        const hasActiveSale = products.some(p => p.isSale === true && p.salePrice && p.price > p.salePrice);
+        if (hasActiveSale) {
+          const freshTime = Date.now() + (48 * 60 * 60 * 1000);
+          localStorage.setItem('shoeStoreSaleEndTime', freshTime.toString());
+          setIsSaleActive(true);
+        } else {
+          clearInterval(timer);
+          setIsSaleActive(false);
+          setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+        }
       } else {
+        setIsSaleActive(true);
         const hours = Math.floor(distance / (1000 * 60 * 60));
         const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((distance % (1000 * 60)) / 1000);
@@ -63,7 +92,7 @@ export default function Sale() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [products]);
 
   // Smart Discount Calculator
   const calculateDiscount = (price: number, salePrice: number) => {
@@ -71,8 +100,11 @@ export default function Sale() {
     return Math.round(((price - salePrice) / price) * 100);
   };
 
-  // 🔥 Strictly filter Sale Products (Aur check karo ki Sale active hai ya nahi)
-  const saleProducts = isSaleActive ? products.filter(p =>
+  // 🔥 Strictly filter Sale Products (If products exist on sale in DB, they ALWAYS display!)
+  const hasDbSaleProducts = products.some(p => p.isSale === true && p.salePrice && p.price > p.salePrice);
+  const isSaleCurrentlyLive = isSaleActive || hasDbSaleProducts;
+
+  const saleProducts = isSaleCurrentlyLive ? products.filter(p =>
     p.isSale === true && p.salePrice && p.price > p.salePrice
   ) : [];
 

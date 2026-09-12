@@ -32,10 +32,8 @@ export default function ProductCard({ product }: { product: Product & { isSale?:
   // 2. Initialize global currency hook
   const { convertPrice, loading: currencyLoading } = useGlobalCurrency();
 
-  const [wishlisting, setWishlisting] = useState(false);
-
   const inWishlist = isInWishlist(product.id);
-  const outOfStock = product.stock === 0;
+  const outOfStock = (product.stock ?? 0) <= 0;
 
   // 🔥 NEW: Smart Sale & Discount Calculation Logic
   let discount = 0;
@@ -52,14 +50,17 @@ export default function ProductCard({ product }: { product: Product & { isSale?:
     discount = Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100);
   }
 
-  const handleWishlist = async (e: React.MouseEvent) => {
+  const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!session) { router.push('/auth/signin'); return; }
-    setWishlisting(true);
-    await toggleWishlist(product.id);
-    setWishlisting(false);
+    if (!session) {
+      router.push('/auth/signin');
+      return;
+    }
+    toggleWishlist(product.id, product);
   };
+
+  const productTarget = `/products/${product.slug || product.id}`;
 
   return (
     <motion.article
@@ -67,9 +68,15 @@ export default function ProductCard({ product }: { product: Product & { isSale?:
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="group"
+      className="group cursor-pointer active:scale-[0.98] transition-transform duration-150"
+      onTouchStart={() => {
+        router.prefetch(productTarget);
+      }}
+      onMouseEnter={() => {
+        router.prefetch(productTarget);
+      }}
     >
-      <Link href={`/products/${product.slug}`} className="block">
+      <Link href={productTarget} prefetch={true} className="block cursor-pointer">
         {/* Image container */}
         <div className="relative aspect-[4/5] bg-neutral-100 rounded-xl overflow-hidden mb-4">
           <Image
@@ -77,55 +84,59 @@ export default function ProductCard({ product }: { product: Product & { isSale?:
             alt={product.name}
             fill
             sizes="(max-width:640px) 100vw,(max-width:1024px) 50vw,25vw"
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
+            className={`object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07] mix-blend-multiply ${outOfStock ? 'grayscale-[50%] opacity-75' : ''}`}
             loading="lazy"
-          // ✅ Fixed fetchpriority warning implicitly by keeping it clean and using lazy loading
           />
 
           {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
-            {product.isNew && (
-              <span className="bg-black text-white text-[10px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-full">New</span>
-            )}
-            {/* 🔥 Dynamic Sale Badge */}
-            {product.isSale && discount > 0 ? (
-              <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-md shadow-red-200">-{discount}% SALE</span>
-            ) : discount > 0 ? (
-              <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">-{discount}%</span>
-            ) : null}
-            {outOfStock && (
-              <span className="bg-neutral-500 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-full">Sold Out</span>
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 pointer-events-none">
+            {outOfStock ? (
+              <span className="bg-red-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-md">
+                Out of Stock
+              </span>
+            ) : (
+              <>
+                {product.isNew && (
+                  <span className="bg-black text-white text-[10px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-full">New</span>
+                )}
+                {/* 🔥 Dynamic Sale Badge */}
+                {product.isSale && discount > 0 ? (
+                  <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-md shadow-red-200">-{discount}% SALE</span>
+                ) : discount > 0 ? (
+                  <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">-{discount}%</span>
+                ) : null}
+                {product.stock > 0 && product.stock <= 3 && (
+                  <span className="bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-md">
+                    Only {product.stock} Left
+                  </span>
+                )}
+              </>
             )}
           </div>
 
           {/* Wishlist */}
-          <motion.button
-            whileTap={{ scale: 0.85 }}
+          <button
+            type="button"
+            data-no-navigate="true"
             onClick={handleWishlist}
-            disabled={wishlisting}
             aria-label="Toggle wishlist"
-            className={`absolute top-3 right-3 z-10 p-2.5 rounded-full backdrop-blur-md transition-all duration-200 ${inWishlist ? 'bg-red-500 text-white shadow-lg' : 'bg-white/80 text-neutral-700 hover:bg-red-500 hover:text-white shadow-md'
-              }`}
+            className={`absolute top-3 right-3 z-20 p-2.5 rounded-full backdrop-blur-md transition-all duration-200 cursor-pointer active:scale-90 ${
+              inWishlist ? 'bg-red-500 text-white shadow-lg' : 'bg-white/80 text-neutral-700 hover:bg-red-500 hover:text-white shadow-md'
+            }`}
           >
             <Heart className={`h-4 w-4 ${inWishlist ? 'fill-current' : ''}`} />
-          </motion.button>
+          </button>
 
-          {/* Quick add - slides up on hover */}
+          {/* Quick preview banner - purely CSS desktop hover, zero touch interference on mobile */}
           {!outOfStock && (
-            <motion.div
-              initial={{ y: '100%' }}
-              whileHover={{ y: 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="absolute bottom-0 left-0 right-0"
-              style={{ originY: 1 }}
-            >
+            <div className="hidden lg:block absolute bottom-0 left-0 right-0 transform translate-y-full group-hover:translate-y-0 transition-transform duration-200 ease-out z-10 pointer-events-none">
               <div className="mx-3 mb-3">
-                <button className="w-full bg-black text-white py-3 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors">
+                <div className="w-full bg-black text-white py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg">
                   <ShoppingBag className="h-4 w-4" />
-                  Quick Add
-                </button>
+                  View Product
+                </div>
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 

@@ -28,17 +28,17 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
 
     return (
-      <div className={`${fullWidth ? 'w-full' : ''}`}>
+      <div className={`${fullWidth ? 'w-full max-w-full' : ''} min-w-0 box-border`}>
         {label && (
           <label
             htmlFor={inputId}
-            className="mb-1.5 block text-sm font-medium text-neutral-900"
+            className="mb-1.5 block text-xs sm:text-sm font-semibold text-neutral-900"
           >
             {label}
           </label>
         )}
         
-        <div className="relative">
+        <div className="relative w-full min-w-0 max-w-full box-border">
           {leftIcon && (
             <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
               {leftIcon}
@@ -49,10 +49,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={`
-              block w-full rounded-lg border transition-colors
-              ${leftIcon ? 'pl-10' : 'pl-3'}
-              ${rightIcon || error ? 'pr-10' : 'pr-3'}
-              py-2.5 text-sm
+              block w-full min-w-0 max-w-full box-border rounded-lg border transition-colors
+              ${leftIcon ? 'pl-9 sm:pl-10' : 'pl-3 sm:pl-3.5'}
+              ${rightIcon || error ? 'pr-9 sm:pr-10' : 'pr-3 sm:pr-3.5'}
+              py-2 sm:py-2.5 text-xs sm:text-sm
               ${
                 error
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500'

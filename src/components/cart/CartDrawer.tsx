@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, Plus, Minus, Trash2 } from 'lucide-react';
 import { CartItem as CartItemType } from '@/types/cart';
 import { useGlobalCurrency } from '@/context/CurrencyContext';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/router';
 
 interface Props {
   isOpen: boolean;
@@ -16,6 +18,8 @@ interface Props {
 }
 
 export default function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem }: Props) {
+  const router = useRouter();
+  const { status } = useSession();
   // 👈 Hook se freeShippingThreshold fetch kiya
   const { convertPrice, loading: currencyLoading, freeShippingThreshold } = useGlobalCurrency();
 
@@ -108,7 +112,14 @@ export default function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, o
                         className="flex gap-4"
                       >
                         <div className="relative w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-neutral-100">
-                          <Image src={item.image || '/placeholder.png'} alt={item.name} fill className="object-cover" sizes="80px" />
+                          <Image
+                            src={item.image || '/placeholder.png'}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                            sizes="80px"
+                            unoptimized={typeof item.image === 'string' && item.image.startsWith('http')}
+                          />
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -145,27 +156,44 @@ export default function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, o
                     <span>Subtotal</span>
                     <span>{currencyLoading ? '...' : convertPrice(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-neutral-500">
+                  <div className="flex justify-between text-neutral-500 text-xs items-center">
                     <span>Shipping</span>
-                    <span className={shipping === 0 ? 'text-green-600 font-semibold' : ''}>
-                      {shipping === 0 ? 'FREE' : (currencyLoading ? '...' : convertPrice(shipping))}
-                    </span>
+                    {subtotal >= freeShippingThreshold ? (
+                      <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 text-xs uppercase tracking-wider">
+                        FREE
+                      </span>
+                    ) : (
+                      <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                        Calculated at checkout
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                  <span className="font-black text-base uppercase tracking-wide">Total</span>
+                  <span className="font-black text-base uppercase tracking-wide">Estimated Total</span>
                   <span className="font-black text-2xl">
-                    {currencyLoading ? '...' : convertPrice(total)}
+                    {currencyLoading ? '...' : convertPrice(subtotal)}
                   </span>
                 </div>
-                <Link href="/checkout" onClick={onClose}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (status === 'unauthenticated') {
+                      router.push('/auth/signin?callbackUrl=/checkout');
+                    } else {
+                      router.push('/checkout');
+                    }
+                  }}
+                  className="w-full block"
+                >
                   <motion.div
                     whileTap={{ scale: 0.98 }}
                     className="w-full bg-black text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider text-center hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
                     Checkout
                   </motion.div>
-                </Link>
+                </button>
                 <button onClick={onClose} className="w-full text-center text-sm text-neutral-400 hover:text-black transition-colors py-1">
                   Continue Shopping
                 </button>

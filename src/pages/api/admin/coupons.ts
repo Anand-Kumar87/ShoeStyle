@@ -5,8 +5,12 @@ import { prisma } from '@/lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
-  if (!session || session.user?.role !== 'admin') {
-    return res.status(401).json({ error: 'Unauthorized' });
+
+  // 🔥 Z+ SECURITY: Case-Insensitive Admin Check
+  const isAdmin = session?.user?.role?.toString().toUpperCase() === 'ADMIN';
+
+  if (!session || !isAdmin) {
+    return res.status(401).json({ error: 'Unauthorized. Admin access required.' });
   }
 
   if (req.method === 'GET') {

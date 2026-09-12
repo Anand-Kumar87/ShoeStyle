@@ -27,6 +27,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 id: true,
                 name: true,
                 price: true,
+                isSale: true,
+                salePrice: true,
                 image: true,
                 images: true,
                 stock: true,
@@ -36,17 +38,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
         });
 
-        // Format response to match CartItem interface
-        const formattedItems = cartItems.map((item) => ({
-          id: item.id,
-          productId: item.productId,
-          name: item.product.name,
-          price: item.product.price,
-          image: item.product.image || item.product.images?.[0] || '/placeholder.jpg',
-          size: item.size || '',
-          color: item.color || '',
-          quantity: item.quantity,
-        }));
+        const formattedItems = cartItems.map((item) => {
+          const effectivePrice = (item.product.isSale && item.product.salePrice && item.product.price > item.product.salePrice)
+            ? item.product.salePrice
+            : item.product.price;
+          return {
+            id: item.id,
+            productId: item.productId,
+            slug: item.product.slug,
+            name: item.product.name,
+            price: effectivePrice,
+            image: item.product.image || item.product.images?.[0] || '/placeholder.png',
+            size: item.size || '',
+            color: item.color || '',
+            quantity: item.quantity,
+          };
+        });
 
         return res.status(200).json({ items: formattedItems });
       }
@@ -76,6 +83,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: true,
           name: true,
           price: true,
+          isSale: true,
+          salePrice: true,
           image: true,
           images: true,
           stock: true,
@@ -127,6 +136,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             });
           }
 
+          const effectivePrice = (product.isSale && product.salePrice && product.price > product.salePrice)
+            ? product.salePrice
+            : product.price;
+
           const updatedItem = await prisma.cartItem.update({
             where: { id: existingCartItem.id },
             data: { quantity: newQuantity },
@@ -136,13 +149,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id: updatedItem.id,
             productId: updatedItem.productId,
             name: product.name,
-            price: product.price,
+            price: effectivePrice,
             image: product.image || product.images?.[0] || '/placeholder.jpg',
             size: updatedItem.size || '',
             color: updatedItem.color || '',
             quantity: updatedItem.quantity,
           });
         }
+
+        const effectivePrice = (product.isSale && product.salePrice && product.price > product.salePrice)
+          ? product.salePrice
+          : product.price;
 
         // Create new cart item
         const cartItem = await prisma.cartItem.create({
@@ -159,7 +176,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: cartItem.id,
           productId: cartItem.productId,
           name: product.name,
-          price: product.price,
+          price: effectivePrice,
           image: product.image || product.images?.[0] || '/placeholder.jpg',
           size: cartItem.size || '',
           color: cartItem.color || '',

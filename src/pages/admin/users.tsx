@@ -16,10 +16,10 @@ const rowAnim = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } 
 // Premium Skeleton
 function SkeletonRow() {
   return (
-    <tr className="border-b border-slate-100">
+    <tr className="border-b border-slate-100 dark:border-slate-800">
       {[1, 2, 3, 4].map(i => (
         <td key={i} className="px-6 py-5">
-          <div className={`h-4 rounded-md animate-pulse bg-slate-200 ${i === 1 ? 'w-40' : i === 3 ? 'w-20 rounded-full' : 'w-full max-w-[150px]'
+          <div className={`h-4 rounded-md animate-pulse bg-slate-200 dark:bg-slate-800 ${i === 1 ? 'w-40' : i === 3 ? 'w-20 rounded-full' : 'w-full max-w-[150px]'
             }`} />
         </td>
       ))}
@@ -69,28 +69,28 @@ export default function AdminUsers() {
         <div className="max-w-7xl mx-auto space-y-8">
 
           {/* Premium Header Section */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white dark:bg-[#0f172a] p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-blue-600 mb-1">User Management</p>
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Registered Users</h1>
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">User Management</p>
+              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Registered Users</h1>
             </div>
 
             {/* Search & Actions */}
             <div className="flex items-center gap-3 w-full md:w-auto">
               <div className="relative flex-1 md:w-64">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                 <input
                   type="text"
                   placeholder="Search name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-900 placeholder-slate-400"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                 />
               </div>
               <button
                 onClick={() => load(true)}
                 disabled={refreshing || loading}
-                className="p-3 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 shadow-sm"
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-sm"
               >
                 <RefreshCw size={20} className={refreshing ? 'animate-spin text-blue-600' : ''} />
               </button>
@@ -98,13 +98,13 @@ export default function AdminUsers() {
           </div>
 
           {/* Table Container */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-white dark:bg-[#0f172a] rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-100">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
                   <tr>
                     {['User', 'Email', 'Role', 'Joined Date'].map(h => (
-                      <th key={h} className="px-6 py-5 text-[11px] font-black uppercase tracking-widest text-slate-500">{h}</th>
+                      <th key={h} className="px-6 py-5 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -112,60 +112,63 @@ export default function AdminUsers() {
                   variants={stagger}
                   initial="initial"
                   animate="animate"
-                  className="divide-y divide-slate-100"
+                  className="divide-y divide-slate-100 dark:divide-slate-800"
                 >
                   {loading ? (
                     Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
                   ) : filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-6 py-20 text-center">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-50 mb-4">
-                          <UsersIcon size={28} className="text-slate-400" />
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800/50 mb-4">
+                          <UsersIcon size={28} className="text-slate-400 dark:text-slate-500" />
                         </div>
-                        <p className="text-slate-500 text-base font-medium">No users found.</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-base font-medium">No users found.</p>
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map(u => {
-                      const isAdmin = u.role?.toLowerCase() === 'admin';
-                      return (
-                        <motion.tr
-                          key={u.id}
-                          variants={rowAnim}
-                          className="group hover:bg-slate-50/50 transition-colors"
-                        >
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-gradient-to-tr from-blue-100 to-indigo-50 border border-blue-200 text-blue-700 shadow-sm">
-                                <span className="text-sm font-black leading-none select-none">
-                                  {(u.name || u.email || 'U')[0].toUpperCase()}
-                                </span>
-                              </div>
-                              <span className="font-bold text-slate-900 text-[14px]">{u.name || '—'}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-5 text-[14px] font-medium text-slate-500">
-                            {u.email}
-                          </td>
-                          <td className="px-6 py-5">
-                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${isAdmin
-                              ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-sm shadow-purple-100'
-                              : 'bg-slate-50 text-slate-600 border-slate-200 shadow-sm shadow-slate-100'
-                              }`}>
-                              {isAdmin ? (
-                                <Shield size={14} className="text-purple-500" />
-                              ) : (
-                                <UserIcon size={14} className="text-slate-500" />
-                              )}
-                              <span className="uppercase tracking-wider">{u.role || 'USER'}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-5 text-[13px] font-bold text-slate-500">
-                            {new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </td>
-                        </motion.tr>
-                      );
-                    })
+                        filteredUsers.map(u => {
+                          // 🔥 FIX: Normalize the role string from the database before checking
+                          const userRole = u.role ? u.role.toUpperCase() : 'USER';
+                          const isAdminRole = userRole === 'ADMIN';
+
+                          return (
+                            <motion.tr
+                              key={u.id}
+                              variants={rowAnim}
+                              className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              <td className="px-6 py-5">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-gradient-to-tr from-blue-100 to-indigo-50 dark:from-blue-900/40 dark:to-indigo-900/30 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 shadow-sm">
+                                    <span className="text-sm font-black leading-none select-none">
+                                      {(u.name || u.email || 'U')[0].toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white text-[14px]">{u.name || '—'}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 text-[14px] font-medium text-slate-500 dark:text-slate-400">
+                                {u.email}
+                              </td>
+                              <td className="px-6 py-5">
+                                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${isAdminRole
+                                  ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 shadow-sm shadow-purple-100 dark:shadow-none'
+                                  : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 shadow-sm shadow-slate-100 dark:shadow-none'
+                                  }`}>
+                                  {isAdminRole ? (
+                                    <Shield size={14} className="text-purple-500" />
+                                  ) : (
+                                    <UserIcon size={14} className="text-slate-500" />
+                                  )}
+                                  <span className="uppercase tracking-wider">{userRole}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 text-[13px] font-bold text-slate-500 dark:text-slate-400">
+                                {new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </td>
+                            </motion.tr>
+                          );
+                        })
                   )}
                 </motion.tbody>
               </table>
@@ -177,9 +180,16 @@ export default function AdminUsers() {
   );
 }
 
-// Authentication Check
+// Security Check: Only allow admins to access this page
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const session = await getServerSession(ctx.req, ctx.res, authOptions);
-  if (!session || session.user?.role !== 'admin') return { redirect: { destination: '/auth/signin', permanent: false } };
+
+  // 🔥 Case-Insensitive Check
+  const isAdmin = session?.user?.role?.toString().toUpperCase() === 'ADMIN';
+
+  if (!session || !isAdmin) {
+    return { redirect: { destination: '/auth/signin', permanent: false } };
+  }
+
   return { props: {} };
 };

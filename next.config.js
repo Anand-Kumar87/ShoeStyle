@@ -1,6 +1,9 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
+    turbopack: {},
 
     // 🔥 Eslint block removed because Next.js 16 doesn't support it here anymore
 
@@ -33,26 +36,32 @@ const nextConfig = {
             },
             {
                 protocol: 'https',
+                hostname: '**.supabase.co',
+            },
+            {
+                protocol: 'https',
+                hostname: 'ozgndkqgoclzzdhitoww.supabase.co',
+            },
+            {
+                protocol: 'https',
                 hostname: 'via.placeholder.com',
             }
         ],
         formats: ['image/webp', 'image/avif'],
     },
 
-    // 🔥 NAYA FIX: Next.js 16 Turbopack Crash Error ko theek karne ke liye
-    turbopack: {},
+    // Root configuration to prevent workspace root ambiguity
+    outputFileTracingRoot: path.resolve(__dirname),
 
-    // Reduce webpack cache size (For production / when not using Turbopack)
+    // Webpack configuration
     webpack: (config, { dev, isServer }) => {
-        if (dev) {
-            config.cache = false;
+        if (!dev) {
+            config.optimization = {
+                ...config.optimization,
+                moduleIds: 'deterministic',
+                chunkIds: 'deterministic',
+            };
         }
-
-        config.optimization = {
-            ...config.optimization,
-            moduleIds: 'deterministic',
-            chunkIds: 'deterministic',
-        };
 
         return config;
     },

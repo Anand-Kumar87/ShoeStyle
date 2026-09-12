@@ -1,7 +1,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]'; // Ensure this path matches your auth file
+import { authOptions } from '@/lib/auth';
+import { getCachedSingleProduct, setCachedSingleProduct, invalidateProductCache } from '@/lib/productCache';
+import { reportServerError } from '@/lib/telemetry';
+
+// 🔥 YEH BLOCK CONNECTION RESET ERROR KO ROKEGA (Size limit 50MB kar di gayi hai)
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '50mb',
+        },
+    },
+};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { id } = req.query;
@@ -11,18 +22,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ==========================================
-    // GET: Fetch a single product (For Edit Form)
+    // GET: Fetch a single product (For Edit Form & Product Detail)
     // ==========================================
     if (req.method === 'GET') {
         try {
+            res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
+            const cached = getCachedSingleProduct(id);
+            if (cached) {
+                return res.status(200).json(cached);
+            }
+
             const product = await prisma.product.findUnique({
                 where: { id }
             });
 
             if (!product) return res.status(404).json({ message: 'Product not found in database' });
+
+            setCachedSingleProduct(id, product);
             return res.status(200).json(product);
         } catch (error: any) {
             console.error('API GET Error:', error.message);
+            reportServerError(error, req);
             return res.status(500).json({ message: 'Failed to fetch product' });
         }
     }
@@ -33,12 +54,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let session;
     try {
         session = await getServerSession(req, res, authOptions);
-        if (!session) {
-            return res.status(401).json({ message: 'Unauthorized. Please log in.' });
+
+        // 🔥 Z+ SECURITY: Case-Insensitive Admin Check (Yeh missing tha)
+        const isAdmin = session?.user?.role?.toString().toUpperCase() === 'ADMIN';
+
+        if (!session || !isAdmin) {
+            return res.status(401).json({ message: 'Unauthorized. Admin access required.' });
         }
     } catch (error: any) {
         console.error('Session Error:', error.message);
-        // If auth fails completely, we throw 500 to let you know authOptions path might be wrong
         return res.status(500).json({ message: 'Authentication configuration error' });
     }
 
@@ -50,9 +74,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const {
                 name, slug, description, price, compareAtPrice,
                 isSale, salePrice, // 🔥 NEW: Added Sale Fields
-                stock, sku, category, brand, image, images,
+                stock, sku, category, categoryId, categoryIds, brand, image, images,
                 sizes, colors, isActive, isFeatured, isNew
             } = req.body;
+
+            const finalCategoryId = (Array.isArray(categoryIds) && categoryIds.length > 0) ? categoryIds[0] : (categoryId || null);
 
             const updatedProduct = await prisma.product.update({
                 where: { id },
@@ -70,6 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     stock: parseInt(stock) || 0,
                     sku: sku || null,
                     category: category || 'sneakers',
+                    categoryId: finalCategoryId,
                     brand: brand || null,
                     image,
                     images: Array.isArray(images) ? images : [],
@@ -81,9 +108,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
             });
 
+            // Invalidate product caches immediately
+            invalidateProductCache();
+
             return res.status(200).json(updatedProduct);
         } catch (error: any) {
             console.error('API PUT Error:', error);
+            reportServerError(error, req);
             if (error.code === 'P2002') {
                 return res.status(400).json({ message: 'A product with this slug already exists.' });
             }
@@ -99,9 +130,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             await prisma.product.delete({
                 where: { id }
             });
+
+            // Invalidate product caches immediately
+            invalidateProductCache();
+
             return res.status(200).json({ message: 'Product deleted successfully' });
         } catch (error: any) {
             console.error('API DELETE Error:', error.message);
+            reportServerError(error, req);
             return res.status(500).json({ message: 'Failed to delete product' });
         }
     }
