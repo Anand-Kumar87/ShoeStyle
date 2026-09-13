@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -15,6 +15,22 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // 🔔 Catch NextAuth URL error parameters (e.g. OAuthAccountNotLinked)
+  useEffect(() => {
+    if (router.query.error) {
+      const err = String(router.query.error);
+      if (err === 'OAuthAccountNotLinked') {
+        setError('An account with this email already exists. You can sign in with your password below or use your linked account.');
+      } else if (err === 'OAuthCallback' || err === 'OAuthSignin') {
+        setError('Could not complete Google sign-in. Please try again.');
+      } else if (err === 'AccessDenied') {
+        setError('Access was denied. Please select an authorized Google account.');
+      } else {
+        setError(`Sign in failed: ${err}`);
+      }
+    }
+  }, [router.query.error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

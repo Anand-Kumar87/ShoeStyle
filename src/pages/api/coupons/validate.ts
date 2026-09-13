@@ -66,11 +66,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const previousUses = await prisma.order.count({
                 where: {
                     couponCode: { equals: coupon.code, mode: 'insensitive' },
+                    status: { notIn: ['CANCELLED', 'FAILED'] },
                     OR: [
                         checkUserId ? { userId: checkUserId } : undefined,
                         checkEmail ? { email: { equals: checkEmail, mode: 'insensitive' } } : undefined,
                     ].filter(Boolean) as any[],
-                    status: { notIn: ['CANCELLED', 'FAILED'] },
+                    // 🛡️ Only count orders that were actually PAID or confirmed/processing/shipped/delivered
+                    AND: [
+                        {
+                            OR: [
+                                { paymentStatus: 'PAID' },
+                                { status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] } },
+                                { AND: [{ paymentMethod: 'cod' }, { status: { notIn: ['CANCELLED', 'FAILED'] } }] },
+                            ]
+                        }
+                    ]
                 },
             });
 

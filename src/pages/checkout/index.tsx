@@ -189,13 +189,16 @@ export default function CheckoutPage() {
     const loadToast = toast.loading('Applying coupon...');
 
     try {
+      const formEmailInput = typeof document !== 'undefined' ? (document.querySelector('input[name="email"]') as HTMLInputElement)?.value?.trim() : '';
+      const activeEmail = formEmailInput || userEmail || undefined;
+
       const res = await fetch('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: couponInput.toUpperCase(),
           orderAmount: subtotal,
-          email: userEmail || undefined,
+          email: activeEmail,
         }),
       });
 
