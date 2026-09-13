@@ -6,8 +6,8 @@ import { SessionProvider } from 'next-auth/react';
 import { Inter } from 'next/font/google';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { ToastContainer } from '@/components/common/Toast';
-import { Toaster } from 'react-hot-toast';
+import toast, { Toaster, ToastBar, useToasterStore } from 'react-hot-toast';
+
 import CookieBanner from '@/components/ui/CookieBanner';
 import { CurrencyProvider } from '@/context/CurrencyContext';
 import { WishlistProvider } from '@/context/WishlistContext';
@@ -16,14 +16,34 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
+// 🛡️ Enterprise Toast Lifecycle & Queue Manager (Guarantees max 2 toasts and prevents sticky toasts)
+function ToastLifecycleManager({ limit = 2 }: { limit?: number }) {
+  const { toasts } = useToasterStore();
+
+  useEffect(() => {
+    // 1. Enforce max queue limit (at most `limit` visible toasts)
+    toasts
+      .filter((t) => t.visible)
+      .filter((_, i) => i >= limit)
+      .forEach((t) => toast.dismiss(t.id));
+
+    // 2. Safety watchdog: Ensure no completed toast (success/error/custom) stays indefinitely
+    toasts.forEach((t) => {
+      if (t.visible && t.type !== 'loading' && (t.duration === Infinity || !t.duration || t.duration > 5000)) {
+        const timer = setTimeout(() => {
+          toast.dismiss(t.id);
+        }, 3500);
+        return () => clearTimeout(timer);
+      }
+    });
+  }, [toasts, limit]);
+
+  return null;
+}
+
 export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   const router = useRouter();
-  const [toasts, setToasts] = useState<any[]>([]);
   const [isNavigating, setIsNavigating] = useState(false);
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
 
   // 🔥 Centralized Client-Side Unhandled Error & Promise Rejection Observability
   useEffect(() => {
@@ -136,42 +156,85 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
               <Component {...pageProps} />
             </ErrorBoundary>
 
-            {/* Custom Legacy Toast Container */}
-            <ToastContainer toasts={toasts} onClose={removeToast} />
+            {/* 🔥 Toast Lifecycle Watchdog: Guarantees max 2 toasts on mobile/desktop and auto-dismisses sticky toasts */}
+            <ToastLifecycleManager limit={2} />
 
-            {/* 🔥 GLOBAL REACT-HOT-TOASTER: Always visible on mobile and desktop */}
+            {/* 🔥 GLOBAL REACT-HOT-TOASTER: Single source of truth for the entire app */}
             <Toaster
               position="top-center"
+              reverseOrder={false}
+              gutter={8}
+              containerStyle={{
+                top: 20,
+                zIndex: 999999,
+              }}
               toastOptions={{
                 duration: 3500,
                 style: {
-                  borderRadius: '16px',
-                  background: '#111827',
-                  color: '#fff',
-                  fontWeight: '700',
+                  borderRadius: '9999px',
+                  background: '#0f172a',
+                  color: '#f8fafc',
+                  fontWeight: '600',
                   fontSize: '13px',
-                  padding: '14px 20px',
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                },
-                error: {
-                  style: {
-                    background: '#1f1315',
-                    color: '#fca5a5',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                  },
+                  padding: '10px 18px',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.25)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  maxWidth: '92vw',
                 },
                 success: {
-                  style: {
-                    background: '#0e1f17',
-                    color: '#86efac',
-                    border: '1px solid rgba(34, 197, 94, 0.4)',
+                  duration: 3000,
+                  iconTheme: {
+                    primary: '#22c55e',
+                    secondary: '#0f172a',
                   },
                 },
+                error: {
+                  duration: 4000,
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#0f172a',
+                  },
+                },
+                loading: {
+                  duration: 6000,
+                },
               }}
-              containerStyle={{
-                zIndex: 999999,
-              }}
-            />
+            >
+              {(t) => (
+                <div
+                  onClick={() => toast.dismiss(t.id)}
+                  className="cursor-pointer transition-transform active:scale-95 touch-manipulation"
+                  title="Tap to dismiss"
+                >
+                  <ToastBar toast={t}>
+                    {({ icon, message }) => (
+                      <div className="flex items-center gap-2.5 select-none">
+                        {icon}
+                        <div className="text-xs sm:text-sm font-semibold tracking-tight pr-1">
+                          {message}
+                        </div>
+                        {t.type !== 'loading' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toast.dismiss(t.id);
+                            }}
+                            className="p-1 -mr-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                            aria-label="Close notification"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18"></line>
+                              <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </ToastBar>
+                </div>
+              )}
+            </Toaster>
 
             <CookieBanner />
           </div>

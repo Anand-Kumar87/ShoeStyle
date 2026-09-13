@@ -4,7 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import PremiumHero from '@/components/hero/PremiumHero';
@@ -67,22 +67,6 @@ export default function Home({ featuredProducts, newArrivals }: HomeProps) {
         <title>ShoeStyle — Premium Footwear</title>
         <meta name="description" content="Shop the latest collection of premium footwear at ShoeStyle. Engineered for performance, designed for style." />
       </Head>
-
-      {/* ✅ Hydration Error Fix: Sirf browser pe load hoga */}
-      {mounted && (
-        <Toaster
-          position="bottom-center"
-          toastOptions={{
-            style: {
-              background: '#333',
-              color: '#fff',
-              borderRadius: '100px',
-              padding: '16px 24px',
-              fontWeight: 'bold'
-            }
-          }}
-        />
-      )}
 
       <Header />
 

@@ -1,6 +1,6 @@
 {
-  "name": "Shoe Store",
-  "short_name": "ShoeStore",
+  "name": "ShoeStyle Luxury Footwear",
+  "short_name": "ShoeStyle",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -13,7 +13,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
+  "theme_color": "#090d16",
+  "background_color": "#090d16",
   "display": "standalone"
 }

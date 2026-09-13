@@ -12,7 +12,7 @@ import OrderSummary from '@/components/checkout/OrderSummary';
 import { useCart } from '@/hooks/useCart';
 import { useGlobalCurrency } from '@/context/CurrencyContext';
 import { calculateShippingFee, getCountryByCode, COUNTRIES } from '@/data/countries';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { ArrowLeft, Globe, ShieldCheck, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function CheckoutPage() {
@@ -200,20 +200,22 @@ export default function CheckoutPage() {
       });
 
       const data = await res.json();
+      toast.dismiss(loadToast);
 
       if (res.ok && data.coupon) {
         setAppliedCoupon(data.coupon);
         setDiscount(data.coupon.discountAmount || 0);
-        toast.success(`Coupon ${data.coupon.code} applied! 🎉`, { id: loadToast });
+        toast.success(`Coupon ${data.coupon.code} applied! 🎉`, { duration: 3000 });
       } else {
         setCouponError(data.message || 'Invalid or expired Coupon Code');
         setDiscount(0);
         setAppliedCoupon(null);
-        toast.error(data.message || 'Invalid Coupon Code', { id: loadToast });
+        toast.error(data.message || 'Invalid Coupon Code', { duration: 4000 });
       }
     } catch (err) {
+      toast.dismiss(loadToast);
       setCouponError('Something went wrong!');
-      toast.error('Error applying coupon', { id: loadToast });
+      toast.error('Error applying coupon', { duration: 4000 });
     }
   };
 
@@ -343,7 +345,6 @@ export default function CheckoutPage() {
         <title>Checkout | ShoeStyle Luxury</title>
       </Head>
 
-      <Toaster position="top-center" />
       <Header />
 
       <main className="min-h-screen bg-slate-50 py-3 sm:py-8 lg:py-12 overflow-x-hidden">

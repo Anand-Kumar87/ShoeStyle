@@ -126,7 +126,6 @@ export default function ProductDetailPage({ product, related }: any) {
     });
     await new Promise(r => setTimeout(r, 400));
     setAdding(false);
-    toast.success('Added to your cart!');
   };
 
   const handleBuyNow = async () => {

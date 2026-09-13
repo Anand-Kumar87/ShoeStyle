@@ -269,14 +269,16 @@ export default function ReviewsSection({ productId, initialReviews, productName 
         throw new Error(data.message || 'Failed to post review');
       }
 
-      toast.success('Review submitted successfully!', { id: toastId });
+      toast.dismiss(toastId);
+      toast.success('Review submitted successfully!', { duration: 3000 });
       setReviews(prev => [data, ...prev]);
       setShowReviewModal(false);
       setComment('');
       setMediaFiles([]);
       setRating(5);
     } catch (err: any) {
-      toast.error(err.message || 'Could not submit review', { id: toastId });
+      toast.dismiss(toastId);
+      toast.error(err.message || 'Could not submit review', { duration: 4000 });
     } finally {
       setSubmitting(false);
     }

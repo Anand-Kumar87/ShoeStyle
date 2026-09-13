@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import {
   FiUser, FiShoppingBag, FiHeart, FiMapPin, FiSettings,
   FiLogOut, FiEdit3, FiCheck, FiX, FiPackage,
@@ -329,8 +329,6 @@ export default function AccountPage({ user, initialAddresses = [] }: AccountPage
         <title>Private Client Account — ShoeStyle</title>
         <meta name="description" content="Manage your ShoeStyle private client account and acquisitions" />
       </Head>
-
-      <Toaster position="top-center" reverseOrder={false} />
 
       <Header />
 

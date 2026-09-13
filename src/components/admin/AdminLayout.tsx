@@ -7,7 +7,6 @@ import {
   BarChart2, LogOut, ExternalLink, ChevronRight, Sun, Moon,
   Menu, X, Bell, Search, Loader2
 } from 'lucide-react';
-import { Toaster } from 'react-hot-toast';
 import Image from 'next/image';
 import { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
@@ -222,22 +221,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#050505] overflow-hidden selection:bg-blue-500/30">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: dark ? 'rgba(24, 24, 27, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-            backdropFilter: 'blur(12px)',
-            color: dark ? '#f8fafc' : '#0f172a',
-            border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}`,
-            borderRadius: '999px',
-            fontSize: '14px',
-            fontWeight: '500',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-          },
-        }}
-      />
-
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-[260px] flex-shrink-0 bg-white/70 dark:bg-[#0A0A0B]/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-white/[0.05] z-20">
         <SidebarContent />
