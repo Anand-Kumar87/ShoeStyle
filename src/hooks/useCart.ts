@@ -14,6 +14,7 @@ interface CartStore {
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   syncCart: () => Promise<void>;
+  validateCart: () => Promise<void>;
   getTotalItems: () => number;
   getSubtotal: () => number;
 }
@@ -141,6 +142,31 @@ export const useCart = create<CartStore>()(
         }
       },
 
+      validateCart: async () => {
+        const currentItems = get().items;
+        if (!currentItems || currentItems.length === 0) return;
+
+        try {
+          const res = await fetch('/api/cart/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: currentItems }),
+          });
+
+          if (!res.ok) return;
+
+          const data = await res.json();
+          if (Array.isArray(data.validItems)) {
+            if (data.removedCount > 0 || JSON.stringify(data.validItems) !== JSON.stringify(currentItems)) {
+              set({ items: data.validItems });
+              console.log(`[Cart Hygiene] Auto-pruned ${data.removedCount} unavailable item(s) from cart.`);
+            }
+          }
+        } catch (e) {
+          console.error('[Cart Validation Error]:', e);
+        }
+      },
+
       getTotalItems: () => {
         return get().items.reduce((total, item) => total + item.quantity, 0);
       },
@@ -154,22 +180,33 @@ export const useCart = create<CartStore>()(
     }),
     {
       name: 'cart-storage',
-      // Optional: add version for future migrations
-      version: 1,
+      // Upgraded to v2: Automatically migrates away obsolete legacy items from previous DB engines
+      version: 2,
+      migrate: (persistedState: any, version: number) => {
+        if (version < 2) {
+          return { ...(persistedState || {}), items: [] };
+        }
+        return persistedState;
+      },
     }
   )
 );
 
-// Hook to sync cart on authentication (ONLY once on login)
+// Hook to sync and validate cart across client lifecycle
 export const useCartSync = () => {
   const { data: session, status } = useSession();
   const syncCart = useCart((state) => state.syncCart);
+  const validateCart = useCart((state) => state.validateCart);
 
+  // 🛡️ Auto-validate cart on client mount to drop ghost/deleted products
   useEffect(() => {
-    // Only sync when user logs in (not on every render)
+    validateCart();
+  }, []);
+
+  // 🛡️ Sync with user profile on login
+  useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      console.log('User authenticated, syncing cart...');
-      syncCart();
+      syncCart().then(() => validateCart());
     }
-  }, [status]); // Only run when auth status changes
+  }, [status]);
 };

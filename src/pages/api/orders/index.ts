@@ -100,6 +100,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       const productMap = new Map(dbProducts.map(p => [p.id, p]));
 
+      // 🛡️ Ensure all items in the order actually exist in the database (guards against obsolete/deleted products)
+      const invalidItems = items.filter((item: any) => !productMap.has(item.productId || item.id));
+      if (invalidItems.length > 0) {
+        return res.status(400).json({
+          message: `Some items in your cart are no longer available (${invalidItems.map((i: any) => i.name || 'Unavailable Item').join(', ')}). Please remove them from your cart to proceed.`,
+        });
+      }
+
       const getAuthenticPrice = (p: any) => {
         if (!p) return 0;
         if (p.isSale && p.salePrice && p.price > p.salePrice) {

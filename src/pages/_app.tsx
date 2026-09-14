@@ -13,8 +13,15 @@ import { CurrencyProvider } from '@/context/CurrencyContext';
 import { WishlistProvider } from '@/context/WishlistContext';
 
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import { useCartSync } from '@/hooks/useCart';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+
+// 🛡️ Global Cart Hygiene & Sync Manager
+function CartSyncManager() {
+  useCartSync();
+  return null;
+}
 
 // 🛡️ Enterprise Toast Lifecycle & Queue Manager (Guarantees max 2 toasts and prevents sticky toasts)
 function ToastLifecycleManager({ limit = 2 }: { limit?: number }) {
@@ -151,6 +158,9 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
             {isNavigating && (
               <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-600 via-indigo-500 to-amber-400 z-[9999999] animate-pulse" />
             )}
+
+            {/* 🛡️ Cart Lifecycle Manager: Auto-prunes deleted products and syncs cart */}
+            <CartSyncManager />
 
             <ErrorBoundary>
               <Component {...pageProps} />

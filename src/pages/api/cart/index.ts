@@ -33,15 +33,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 images: true,
                 stock: true,
                 slug: true,
+                isActive: true,
               },
             },
           },
         });
 
-        const formattedItems = cartItems.map((item) => {
-          const effectivePrice = (item.product.isSale && item.product.salePrice && item.product.price > item.product.salePrice)
-            ? item.product.salePrice
-            : item.product.price;
+        const formattedItems = cartItems
+          .filter((item) => item.product && item.product.isActive)
+          .map((item) => {
+            const effectivePrice = (item.product.isSale && item.product.salePrice && item.product.price > item.product.salePrice)
+              ? item.product.salePrice
+              : item.product.price;
           return {
             id: item.id,
             productId: item.productId,
