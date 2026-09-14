@@ -4,6 +4,7 @@ const path = require('path');
 const nextConfig = {
     reactStrictMode: true,
     turbopack: {},
+    output: process.env.NEXT_OUTPUT_STANDALONE === 'true' ? 'standalone' : undefined,
 
     // 🔥 Eslint block removed because Next.js 16 doesn't support it here anymore
 

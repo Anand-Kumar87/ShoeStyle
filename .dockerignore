@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+.vercel
+.vscode
+.idea
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+*.md
+docs
+cypress
+coverage
