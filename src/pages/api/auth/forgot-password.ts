@@ -32,22 +32,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ message: 'If an account exists, a reset link has been sent.' });
     }
 
-    // 2. Generate a random reset token
+    // 2. Generate a random reset token & SHA-256 hash for secure storage
     const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const resetTokenExpiry = new Date(Date.now() + 3600000); // Token valid for 1 Hour
 
-    // 3. Save token to Database
+    // 3. Save hashed token to Database (OWASP storage standard)
     await prisma.user.update({
       where: { email },
       data: {
-        resetToken,
+        resetToken: hashedToken,
         resetTokenExpiry,
       },
     });
 
-    // 4. Create the Reset URL
-    // NEXTAUTH_URL should be your localhost or live domain (e.g., http://localhost:3000)
-    const resetUrl = `${process.env.NEXTAUTH_URL}/auth/reset-password?token=${resetToken}`;
+    // 4. Create the Reset URL with both token and email params
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
 
     // 5. Setup Nodemailer (Using Gmail as an example)
     const transporter = nodemailer.createTransport({

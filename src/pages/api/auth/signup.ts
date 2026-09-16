@@ -2,10 +2,18 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signupSchema } from '@/lib/validations/schemas';
+import { authLimiter } from '@/lib/rateLimit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Rate limiting check (max 5 signups per minute per IP)
+  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'anonymous';
+  const isAllowed = await authLimiter.check(res, 5, clientIp);
+  if (!isAllowed) {
+    return res.status(429).json({ error: 'Too many registration attempts. Please try again in a minute.' });
   }
 
   try {

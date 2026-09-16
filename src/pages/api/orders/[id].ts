@@ -80,15 +80,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ==========================================
-    // 🚀 PUT REQUEST - Automatically Update Payment Method
+    // 🚀 PUT REQUEST - Securely Update Payment Method
     // ==========================================
     if (req.method === 'PUT') {
       const { paymentMethod } = req.body;
 
+      // 🛡️ Guard against modifying already paid or finalized orders
+      if (order.paymentStatus === 'PAID') {
+        return res.status(400).json({ message: 'Order is already paid and cannot be modified.' });
+      }
+
+      if (['DELIVERED', 'CANCELLED'].includes(order.status.toUpperCase())) {
+        return res.status(400).json({ message: 'Order is closed and cannot be modified.' });
+      }
+
+      const rawMethod = (paymentMethod || '').toString().toUpperCase();
+      const allowedMethods = ['COD', 'RAZORPAY', 'CARD', 'UPI', 'NETBANKING', 'ONLINE'];
+      const sanitizedMethod = allowedMethods.includes(rawMethod) ? rawMethod : order.paymentMethod;
+
       const updatedOrder = await prisma.order.update({
         where: { id: id },
         data: {
-          ...(paymentMethod && { paymentMethod }),
+          paymentMethod: sanitizedMethod,
+          ...(sanitizedMethod === 'COD' ? { status: 'CONFIRMED' } : {}),
         }
       });
 

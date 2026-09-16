@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { createOrderSchema } from '@/lib/validations/schemas';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -90,6 +91,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (!shippingAddress) {
         return res.status(400).json({ message: 'Shipping address is required' });
+      }
+
+      // 🛡️ Zod Input Validation
+      const orderValidation = createOrderSchema.safeParse({
+        items,
+        shippingAddress,
+        couponCode: bodyCouponCode,
+      });
+
+      if (!orderValidation.success) {
+        return res.status(400).json({
+          message: orderValidation.error.errors[0]?.message || 'Invalid order data',
+        });
       }
 
       // 🛡️ SECURITY HARDENING: Fetch authentic product prices from database to prevent price tampering
@@ -244,10 +258,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           couponCode: bodyCouponCode || null,
           total: finalTotal,
 
-          // Status Fields
-          paymentMethod: paymentMethod || 'pending',
-          paymentStatus: paymentStatus || 'PENDING',
-          status: status || 'PENDING',
+          // 🛡️ SECURITY HARDENING: Server-enforced status flags (strictly prevents client mass-assignment)
+          paymentMethod: (() => {
+            const raw = String(paymentMethod || 'cod').toLowerCase();
+            return ['cod', 'razorpay', 'card', 'upi', 'netbanking', 'online'].includes(raw) ? raw : 'cod';
+          })(),
+          paymentStatus: 'PENDING',
+          status: 'PENDING',
 
           items: {
             create: items.map((item: any) => {

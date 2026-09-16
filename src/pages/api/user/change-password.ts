@@ -1,22 +1,30 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { authLimiter } from '@/lib/rateLimit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    // 1. Sirf POST requests allow karenge
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
 
-    // 2. User ka session check karo
-    const session = await getSession({ req });
+    // Rate limiting (max 5 password change attempts per minute per IP)
+    const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'anonymous';
+    const isAllowed = await authLimiter.check(res, 5, clientIp);
+    if (!isAllowed) {
+        return res.status(429).json({ message: 'Too many attempts. Please try again in a minute.' });
+    }
+
+    // User session check using getServerSession
+    const session = await getServerSession(req, res, authOptions);
     if (!session || !session.user || !session.user.email) {
         return res.status(401).json({ message: 'Please login to change your password' });
     }
 
-    // 3. Security: Admin password se chhed-chhad block karo
-    if (session.user.role === 'admin') {
+    // Security: Admin password modification guarded
+    if ((session.user as any).role?.toLowerCase() === 'admin') {
         return res.status(403).json({ message: 'Access Denied: Admin passwords cannot be modified from this interface.' });
     }
 
@@ -25,6 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ message: 'Please provide both current and new passwords' });
+        }
+
+        if (typeof newPassword !== 'string' || newPassword.length < 8) {
+            return res.status(400).json({ message: 'New password must be at least 8 characters long' });
         }
 
         // 4. Database se user ki details nikalo

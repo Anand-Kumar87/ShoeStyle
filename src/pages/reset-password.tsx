@@ -43,7 +43,7 @@ export default function ResetPassword() {
       if (res.ok) {
         setSuccess(true);
         toast.success('Password reset successful!');
-        setTimeout(() => router.push('/login'), 2000);
+        setTimeout(() => router.push('/auth/signin'), 2000);
       } else {
         toast.error('Reset link expired or invalid');
       }
