@@ -169,14 +169,15 @@ export default function AdminSettings() {
                     shiprocket: shiprocketForm,
                 })
             });
+            toast.dismiss(t);
             if (res.ok) {
-                toast.success('Settings updated successfully!', { id: t });
-                setTimeout(() => window.location.reload(), 1500);
+                toast.success('Settings saved successfully! 🚀', { duration: 3000 });
             } else {
-                toast.error('Failed to save settings', { id: t });
+                toast.error('Failed to save settings. Please try again.', { duration: 4000 });
             }
         } catch (error) {
-            toast.error('Something went wrong', { id: t });
+            toast.dismiss(t);
+            toast.error('Something went wrong. Please check your connection.', { duration: 4000 });
         } finally {
             setSaving(false);
         }

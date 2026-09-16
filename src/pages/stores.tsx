@@ -9,47 +9,14 @@ import { MapPin, Phone, Clock, Navigation, PhoneCall, CheckCircle2, ArrowRight }
 const stores = [
   {
     id: 1,
-    name: 'New York Flagship',
-    address: '123 5th Avenue, Manhattan',
-    city: 'New York, NY 10001',
-    phone: '+1 (555) 123-4567',
-    hours: 'Mon-Sat: 10AM-9PM, Sun: 11AM-7PM',
+    name: 'ShoeStyle Flagship Store & HQ',
+    address: 'D-95, 100 feeta Rd, Enclave Phase 2',
+    city: 'Chattarpur, New Delhi 110074',
+    phone: '+91 8726540277',
+    hours: 'Mon-Sat: 10AM-8PM, Sun: 11AM-6PM',
     image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&q=80&w=1000',
-    features: ['Premium Collection', 'Personal Styling', 'VIP Lounge'],
-    mapEmbed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3022.617548624103!2d-73.98785308459418!3d40.74844047932847!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c259a9b3117469%3A0xd134e199a405a163!2sEmpire%20State%20Building!5e0!3m2!1sen!2sus!4v1625680000000!5m2!1sen!2sus'
-  },
-  {
-    id: 2,
-    name: 'Los Angeles Boutique',
-    address: '456 Rodeo Drive, Beverly Hills',
-    city: 'Los Angeles, CA 90210',
-    phone: '+1 (555) 234-5678',
-    hours: 'Mon-Sun: 10AM-8PM',
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=1000',
-    features: ['Exclusive Drops', 'Customization Lab', 'Valet Parking'],
-    mapEmbed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3304.595701980315!2d-118.40321568478423!3d34.07982298059881!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2bc04ce7b2db1%3A0x6b802e3b2e56667!2sRodeo%20Dr%2C%20Beverly%20Hills%2C%20CA%2090210!5e0!3m2!1sen!2sus!4v1625680100000!5m2!1sen!2sus'
-  },
-  {
-    id: 3,
-    name: 'Chicago Hub',
-    address: '789 Magnificent Mile',
-    city: 'Chicago, IL 60611',
-    phone: '+1 (555) 345-6789',
-    hours: 'Mon-Sat: 9AM-10PM, Sun: 9AM-8PM',
-    image: 'https://images.unsplash.com/photo-1600607686527-6fb886090705?auto=format&fit=crop&q=80&w=1000',
-    features: ['Performance Gear', 'Running Track', 'Cafe'],
-    mapEmbed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2970.123456789012!2d-87.62456789012345!3d41.89012345678901!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x880e2cacb2abcdef%3A0x1234567890abcdef!2sMagnificent%20Mile%2C%20Chicago%2C%20IL!5e0!3m2!1sen!2sus!4v1625680200000!5m2!1sen!2sus'
-  },
-  {
-    id: 4,
-    name: 'Miami Heatwave',
-    address: '321 Ocean Drive, South Beach',
-    city: 'Miami, FL 33139',
-    phone: '+1 (555) 456-7890',
-    hours: 'Mon-Sun: 10AM-11PM',
-    image: 'https://images.unsplash.com/photo-1581338834647-b0fb40704e21?auto=format&fit=crop&q=80&w=1000',
-    features: ['Summer Collection', 'DJ Booth', 'Beach Ready'],
-    mapEmbed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3592.839818451877!2d-80.13328138497672!3d25.77610018362947!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88d9b48e3518e217%3A0x6b7722744ecbecc!2sOcean%20Dr%2C%20Miami%20Beach%2C%20FL!5e0!3m2!1sen!2sus!4v1625680300000!5m2!1sen!2sus'
+    features: ['Exclusive Sneaker Vault', 'Custom Fitting & Sizing', 'Direct Store Pickup', 'Official Support Hub'],
+    mapEmbed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14022.428456637372!2d77.16518175!3d28.52148115!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d1e1f7481179d%3A0xc02d33458626ebc8!2sChattarpur%2C%20New%20Delhi%2C%20Delhi%20110074!5e0!3m2!1sen!2sin!4v1718877140000!5m2!1sen!2sin'
   }
 ];
 
@@ -89,16 +56,16 @@ export default function Stores() {
 
               <div className="flex flex-wrap gap-6 justify-center">
                 <div className="bg-white/10 backdrop-blur-md px-8 py-4 rounded-2xl border border-white/10 shadow-xl">
-                  <div className="font-black text-4xl text-white mb-1">{stores.length}</div>
-                  <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Flagships</div>
+                  <div className="font-black text-4xl text-white mb-1">1</div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Flagship Boutique</div>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md px-8 py-4 rounded-2xl border border-white/10 shadow-xl">
-                  <div className="font-black text-4xl text-white mb-1">50+</div>
-                  <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Retailers</div>
+                  <div className="font-black text-4xl text-white mb-1">Pan-India</div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Express Delivery</div>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md px-8 py-4 rounded-2xl border border-white/10 shadow-xl">
                   <div className="font-black text-4xl text-white mb-1">24/7</div>
-                  <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Support</div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-gray-400">VIP Concierge</div>
                 </div>
               </div>
             </motion.div>

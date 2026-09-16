@@ -1,9 +1,6 @@
-'use client';
-
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import toast from 'react-hot-toast';
 import {
   Facebook,
   Instagram,
@@ -12,53 +9,11 @@ import {
   Mail,
   Phone,
   MapPin,
-  Send,
   CreditCard,
   ShieldCheck
 } from 'lucide-react';
 
 const Footer = () => {
-  const [email, setEmail] = useState('');
-  const [subscribeStatus, setSubscribeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-
-  const handleNewsletterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !email.includes('@')) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    setSubscribeStatus('loading');
-
-    try {
-      const res = await fetch('/api/newsletter/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setSubscribeStatus('success');
-        setEmail('');
-        toast.success('✨ Welcome to ShoeStyle VIP! Check your email for your 10% voucher code.', {
-          duration: 5000,
-          style: { borderRadius: '12px', background: '#000', color: '#fff', fontWeight: 'bold' }
-        });
-        setTimeout(() => setSubscribeStatus('idle'), 4000);
-      } else {
-        setSubscribeStatus('error');
-        toast.error(data.message || 'Subscription failed. Please try again.');
-        setTimeout(() => setSubscribeStatus('idle'), 3000);
-      }
-    } catch (err) {
-      setSubscribeStatus('error');
-      toast.error('Network error. Please check your connection.');
-      setTimeout(() => setSubscribeStatus('idle'), 3000);
-    }
-  };
-
   return (
     <footer className="mt-auto bg-neutral-900 text-neutral-300">
       {/* Main Footer Content */}
@@ -195,50 +150,6 @@ const Footer = () => {
                 </Link>
               </li>
             </ul>
-          </div>
-        </div>
-
-        {/* Newsletter Section */}
-        <div className="mt-12 border-t border-neutral-800 pt-8">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center">
-            <div>
-              <h3 className="mb-2 text-lg font-semibold text-white">
-                Subscribe to our Newsletter
-              </h3>
-              <p className="text-sm text-neutral-400">
-                Get the latest updates on new products and upcoming sales
-              </p>
-            </div>
-
-            <form onSubmit={handleNewsletterSubmit} className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  required
-                  className="w-full rounded-lg bg-neutral-800 px-4 py-3 pr-12 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-white/20"
-                />
-                <Mail className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-500" />
-              </div>
-              <button
-                type="submit"
-                disabled={subscribeStatus === 'loading'}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-neutral-900 transition-all hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {subscribeStatus === 'loading' ? (
-                  'Subscribing...'
-                ) : subscribeStatus === 'success' ? (
-                  '✓ Subscribed!'
-                ) : (
-                  <>
-                    Subscribe
-                    <Send className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </form>
           </div>
         </div>
 
